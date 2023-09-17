@@ -12,14 +12,14 @@ import simplifile
 
 ///
 /// 
-pub fn config(out_dir: String) -> Config(NoStaticRoutes, NoStaticAssets) {
+pub fn new(out_dir: String) -> Config(NoStaticRoutes, NoStaticAssets) {
   Config(out_dir, None, [])
 }
 
 ///
 /// 
 pub fn build(config: Config(HasStaticRoutes, has_static_dir)) {
-  let Config(out_dir, _, routes) = config
+  let Config(out_dir, static_dir, routes) = config
 
   // There's nothing like Node's `path` module for Gleam yet so working with
   // paths and directories is a bit primitive. We'll be concating all of our
@@ -32,7 +32,10 @@ pub fn build(config: Config(HasStaticRoutes, has_static_dir)) {
   // will be wiped, and any previously-generated routes will also be deleted and
   // regenerated.
   let _ = simplifile.delete(out_dir)
-  let assert Ok(_) = simplifile.create_directory_all(out_dir)
+  let assert Ok(_) = case static_dir {
+    Some(path) -> simplifile.copy_directory(path, out_dir)
+    None -> simplifile.create_directory_all(out_dir)
+  }
   let routes = list.sort(routes, fn(a, b) { string.compare(a.path, b.path) })
   use route <- list.each(routes)
 
@@ -41,6 +44,7 @@ pub fn build(config: Config(HasStaticRoutes, has_static_dir)) {
       let path = out_dir <> "/index.html"
       let html = element.to_string(el)
       let assert Ok(_) = simplifile.write(html, path)
+
       Nil
     }
 
@@ -50,6 +54,7 @@ pub fn build(config: Config(HasStaticRoutes, has_static_dir)) {
       let path = out_dir <> trim_slash(path) <> "/" <> name <> ".html"
       let html = element.to_string(el)
       let assert Ok(_) = simplifile.write(html, path)
+
       Nil
     }
 
@@ -59,13 +64,20 @@ pub fn build(config: Config(HasStaticRoutes, has_static_dir)) {
       let path = out_dir <> trim_slash(path) <> "/" <> page <> ".html"
       let html = element.to_string(el)
       let assert Ok(_) = simplifile.write(html, path)
+
+      Nil
     }
   }
 }
 
 // TYPES -----------------------------------------------------------------------
 
-///
+/// The `Config` type tells `lustre_ssg` how to generate your site. It includes
+/// things like the output directory and any routes you have configured.
+/// 
+/// The type parameters are used to track different facts about the configuration
+/// and prevent silly things from happening like building a site with no guaranteed
+/// routes.
 /// 
 pub opaque type Config(has_static_routes, has_static_dir) {
   Config(out_dir: String, static_dir: Option(String), routes: List(Route))
@@ -96,9 +108,7 @@ pub type HasStaticRoutes
 /// 
 pub type HasStaticAssets
 
-///
-/// 
-pub opaque type Route {
+type Route {
   Static(path: String, page: Element(Nil))
   Dynamic(path: String, pages: Map(String, Element(Nil)))
 }
