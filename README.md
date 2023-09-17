@@ -55,7 +55,7 @@ pub fn main() {
     #(post.id, post)
   })
 
-  ssg.config("./priv")
+  ssg.new("./priv")
   |> ssg.add_static_route("/", index.view())
   |> ssg.add_static_route("/blog", blog.view(posts.all()))
   // Each blog post will be rendered with the `post.view` function at the route
