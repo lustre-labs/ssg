@@ -1,0 +1,14 @@
+name = "lustre_ssg"
+version = "0.1.0"
+description = "A simple static site generator for Lustre projects."
+
+licences = ["MIT"]
+repository = { type = "github", user = "lustre-labs", repo = "lustre_ssg" }
+
+[dependencies]
+gleam_stdlib = "~> 0.30"
+lustre = "~> 3.0"
+simplifile = "~> 0.1"
+
+[dev-dependencies]
+gleeunit = "~> 0.10"
