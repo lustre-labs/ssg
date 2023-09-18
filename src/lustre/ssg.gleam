@@ -10,13 +10,18 @@ import simplifile
 
 // MAIN ------------------------------------------------------------------------
 
-///
+/// Initialise a new configuration for the static site generator. If you pass a
+/// relative path it will be resolved relative to the current working directory,
+/// _not_ the directory of the Gleam file.
 /// 
-pub fn new(out_dir: String) -> Config(NoStaticRoutes, NoStaticAssets) {
+pub fn new(out_dir: String) -> Config(NoStaticRoutes, NoStaticDir) {
   Config(out_dir, None, [])
 }
 
-///
+/// Generate the static site. This will delete the output directory if it already
+/// exists and then generate all of the routes configured. If a static assets
+/// directory has been configured, its contents will be recursively copied into 
+/// the output directory.
 /// 
 pub fn build(config: Config(HasStaticRoutes, has_static_dir)) {
   let Config(out_dir, static_dir, routes) = config
@@ -61,7 +66,7 @@ pub fn build(config: Config(HasStaticRoutes, has_static_dir)) {
     Dynamic(path, pages) -> {
       let _ = simplifile.create_directory_all(out_dir <> path)
       use #(page, el) <- list.each(map.to_list(pages))
-      let path = out_dir <> trim_slash(path) <> "/" <> page <> ".html"
+      let path = out_dir <> trim_slash(path) <> "/" <> routify(page) <> ".html"
       let html = element.to_string(el)
       let assert Ok(_) = simplifile.write(html, path)
 
@@ -96,7 +101,7 @@ pub type NoStaticRoutes
 /// It indicates a configuration that does not have a statica ssets directory to
 /// copy.
 /// 
-pub type NoStaticAssets
+pub type NoStaticDir
 
 /// This type is used to tag the `Config` through the different builder functions.
 /// It indicates a configuration that will generate least one static route.
@@ -106,7 +111,7 @@ pub type HasStaticRoutes
 /// This type is used to tag the `Config` through the different builder functions.
 /// It indicates a configuration that has a static assets directory to copy.
 /// 
-pub type HasStaticAssets
+pub type HasStaticDir
 
 type Route {
   Static(path: String, page: Element(Nil))
@@ -115,7 +120,17 @@ type Route {
 
 // BUILDERS --------------------------------------------------------------------
 
-///
+/// Configure a static route to be generated. The path should be the route that
+/// the page will be available at when served by a HTTP server. For example the
+/// path "/blog" would be available at "https://your_site.com/blog".
+/// 
+/// You need to add at least one static route before you can build your site. This
+/// is to prevent you from providing empty dynamic routes and accidentally building
+/// nothing. 
+/// 
+/// Paths are converted to kebab-case and lowercased. This means that the path
+/// "/Blog" will be available at "/blog" and and "/About me" will be available at
+/// "/about-me".
 /// 
 pub fn add_static_route(
   config: Config(has_static_routes, has_static_dir),
@@ -128,7 +143,10 @@ pub fn add_static_route(
   Config(out_dir, static_dir, [route, ..routes])
 }
 
-///
+/// Configure a map of dynamic routes to be generated. As with `add_static_route`
+/// the base path should be the route that each page will be available at when
+/// served by a HTTP server.
+/// 
 /// The initial path is the base for all dynamic routes to be generated. The
 /// keys of the `data` map will be used to generate the dynamic routes. For
 /// example, to generate dynamic routes for a blog where each page is a post
@@ -146,6 +164,10 @@ pub fn add_static_route(
 /// |> ...
 /// |> ssg.add_dynamic_route("/blog", posts, render_post)
 /// ```
+/// 
+/// Paths are converted to kebab-case and lowercased. This means that the path
+/// "/Blog" will be available at "/blog" and and "/About me" will be available at
+/// "/about-me".
 /// 
 pub fn add_dynamic_route(
   config: Config(has_static_routes, has_static_dir),
@@ -171,9 +193,9 @@ pub fn add_dynamic_route(
 ///
 /// 
 pub fn add_static_dir(
-  config: Config(has_static_routes, NoStaticAssets),
+  config: Config(has_static_routes, NoStaticDir),
   path: String,
-) -> Config(has_static_routes, HasStaticAssets) {
+) -> Config(has_static_routes, HasStaticDir) {
   let Config(out_dir, _, routes) = config
   let static_dir = routify(path)
 
