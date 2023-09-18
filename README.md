@@ -48,8 +48,6 @@ import app/page/post
 import lustre/ssg
 
 pub fn main() {
-  // Dynamic routes can be configured with a `Map` of the dynamic path segment
-  // to the data that will be used to render the page.
   let posts = map.from_list({
     use post <- list.map(posts.all())
     #(post.id, post)
@@ -58,9 +56,7 @@ pub fn main() {
   ssg.new("./priv")
   |> ssg.add_static_route("/", index.view())
   |> ssg.add_static_route("/blog", blog.view(posts.all()))
-  // Each blog post will be rendered with the `post.view` function at the route
-  // `/blog/:post_id`.
-  |> ssg.add_dynamic_route("/blog", posts), post.view)
+  |> ssg.add_dynamic_route("/blog", posts, post.view)
   |> ssg.build
 }
 ```
