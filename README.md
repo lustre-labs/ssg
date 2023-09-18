@@ -60,7 +60,7 @@ pub fn main() {
   |> ssg.add_static_route("/blog", blog.view(posts.all()))
   // Each blog post will be rendered with the `post.view` function at the route
   // `/blog/:post_id`.
-  |> ssg.add_dynamic_route("/blog", blog(map.values(posts)), post.view)
+  |> ssg.add_dynamic_route("/blog", posts), post.view)
   |> ssg.build
 }
 ```
