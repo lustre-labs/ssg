@@ -5,8 +5,8 @@
 
 A simple static site generator for [Lustre](https://github.com/lustre-labs/lustre)
 projects, written in pure Gleam. `lustre_ssg` will run on both Gleam's Erlang and
-JavaScript targets. If you're using the JavaScript target, `lustre_ssg` is tested
-tested to work on both Node.js and Deno!
+JavaScript targets. If you're using the JavaScript target, `lustre_ssg` is tested 
+to work on both Node.js and Deno!
 
 ## What it is
 
