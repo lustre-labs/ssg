@@ -1,11 +1,11 @@
 // IMPORTS ---------------------------------------------------------------------
 
 import gleam/list
-import gleam/map.{Map}
-import gleam/option.{None, Option, Some}
+import gleam/map.{type Map}
+import gleam/option.{type Option, None, Some}
 import gleam/regex
 import gleam/string
-import lustre/element.{Element}
+import lustre/element.{type Element}
 import simplifile
 
 // MAIN ------------------------------------------------------------------------
@@ -55,7 +55,7 @@ pub fn build(config: Config(HasStaticRoutes, has_static_dir, use_index_routes)) 
     Static("/", el) -> {
       let path = out_dir <> "/index.html"
       let html = element.to_string(el)
-      let assert Ok(_) = simplifile.write(html, path)
+      let assert Ok(_) = simplifile.write(path, html)
 
       Nil
     }
@@ -64,7 +64,7 @@ pub fn build(config: Config(HasStaticRoutes, has_static_dir, use_index_routes)) 
       let _ = simplifile.create_directory_all(out_dir <> path)
       let path = out_dir <> trim_slash(path) <> "/index.html"
       let html = element.to_string(el)
-      let assert Ok(_) = simplifile.write(html, path)
+      let assert Ok(_) = simplifile.write(path, html)
 
       Nil
     }
@@ -74,7 +74,7 @@ pub fn build(config: Config(HasStaticRoutes, has_static_dir, use_index_routes)) 
       let _ = simplifile.create_directory_all(out_dir <> path)
       let path = out_dir <> trim_slash(path) <> "/" <> name <> ".html"
       let html = element.to_string(el)
-      let assert Ok(_) = simplifile.write(html, path)
+      let assert Ok(_) = simplifile.write(path, html)
 
       Nil
     }
@@ -84,7 +84,7 @@ pub fn build(config: Config(HasStaticRoutes, has_static_dir, use_index_routes)) 
       use #(page, el) <- list.each(map.to_list(pages))
       let path = out_dir <> trim_slash(path) <> "/" <> routify(page) <> ".html"
       let html = element.to_string(el)
-      let assert Ok(_) = simplifile.write(html, path)
+      let assert Ok(_) = simplifile.write(path, html)
 
       Nil
     }
