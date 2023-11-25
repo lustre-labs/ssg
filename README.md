@@ -5,7 +5,7 @@
 
 A simple static site generator for [Lustre](https://github.com/lustre-labs/lustre)
 projects, written in pure Gleam. `lustre_ssg` will run on both Gleam's Erlang and
-JavaScript targets. If you're using the JavaScript target, `lustre_ssg` is tested 
+JavaScript targets. If you're using the JavaScript target, `lustre_ssg` is tested
 to work on both Node.js and Deno!
 
 ## What it is
@@ -35,6 +35,7 @@ $ gleam add lustre_ssg --dev
 ```gleam
 import gleam/list
 import gleam/map
+import gleam/io
 
 // Some data for your site
 import app/data/posts
@@ -53,11 +54,19 @@ pub fn main() {
     #(post.id, post)
   })
 
-  ssg.new("./priv")
-  |> ssg.add_static_route("/", index.view())
-  |> ssg.add_static_route("/blog", blog.view(posts.all()))
-  |> ssg.add_dynamic_route("/blog", posts, post.view)
-  |> ssg.build
+  let build = ssg.new("./priv")
+    |> ssg.add_static_route("/", index.view())
+    |> ssg.add_static_route("/blog", blog.view(posts.all()))
+    |> ssg.add_dynamic_route("/blog", posts, post.view)
+    |> ssg.build
+
+  case build {
+    Ok(_) -> io.println("Build succeeded!")
+    Error(e) -> {
+      io.debug(e)
+      io.println("Build failed!")
+    }
+  }
 }
 ```
 

@@ -5,6 +5,7 @@ import gleam/map.{type Map}
 import gleam/option.{type Option, None, Some}
 import gleam/regex
 import gleam/string
+import gleam/result
 import lustre/element.{type Element}
 import simplifile
 
@@ -30,7 +31,9 @@ pub fn new(
 /// directory has been configured, its contents will be recursively copied into 
 /// the output directory.
 /// 
-pub fn build(config: Config(HasStaticRoutes, has_static_dir, use_index_routes)) {
+pub fn build(
+  config: Config(HasStaticRoutes, has_static_dir, use_index_routes),
+) -> Result(Nil, BuildError) {
   let Config(out_dir, static_dir, routes, use_index_routes) = config
 
   // There's nothing like Node's `path` module for Gleam yet so working with
@@ -44,51 +47,59 @@ pub fn build(config: Config(HasStaticRoutes, has_static_dir, use_index_routes)) 
   // will be wiped, and any previously-generated routes will also be deleted and
   // regenerated.
   let _ = simplifile.delete(out_dir)
-  let assert Ok(_) = case static_dir {
+
+  case static_dir {
     Some(path) -> simplifile.copy_directory(path, out_dir)
     None -> simplifile.create_directory_all(out_dir)
   }
   let routes = list.sort(routes, fn(a, b) { string.compare(a.path, b.path) })
-  use route <- list.each(routes)
+  let routes = {
+    use route <- list.map(routes)
 
-  case route {
-    Static("/", el) -> {
-      let path = out_dir <> "/index.html"
-      let html = element.to_string(el)
-      let assert Ok(_) = simplifile.write(path, html)
+    case route {
+      Static("/", el) -> {
+        let path = out_dir <> "/index.html"
+        let html = element.to_string(el)
 
-      Nil
-    }
+        simplifile.write(path, html)
+        |> result.map_error(SimplifileError)
+      }
 
-    Static(path, el) if use_index_routes -> {
-      let _ = simplifile.create_directory_all(out_dir <> path)
-      let path = out_dir <> trim_slash(path) <> "/index.html"
-      let html = element.to_string(el)
-      let assert Ok(_) = simplifile.write(path, html)
+      Static(path, el) if use_index_routes -> {
+        let _ = simplifile.create_directory_all(out_dir <> path)
+        let path = out_dir <> trim_slash(path) <> "/index.html"
+        let html = element.to_string(el)
+        simplifile.write(path, html)
+        |> result.map_error(SimplifileError)
+      }
 
-      Nil
-    }
+      Static(path, el) -> {
+        let #(path, name) = last_segment(path)
+        let _ = simplifile.create_directory_all(out_dir <> path)
+        let path = out_dir <> trim_slash(path) <> "/" <> name <> ".html"
+        let html = element.to_string(el)
+        simplifile.write(path, html)
+        |> result.map_error(SimplifileError)
+      }
 
-    Static(path, el) -> {
-      let #(path, name) = last_segment(path)
-      let _ = simplifile.create_directory_all(out_dir <> path)
-      let path = out_dir <> trim_slash(path) <> "/" <> name <> ".html"
-      let html = element.to_string(el)
-      let assert Ok(_) = simplifile.write(path, html)
+      Dynamic(path, pages) -> {
+        let results = {
+          let _ = simplifile.create_directory_all(out_dir <> path)
+          use #(page, el) <- list.map(map.to_list(pages))
+          let path =
+            out_dir <> trim_slash(path) <> "/" <> routify(page) <> ".html"
+          let html = element.to_string(el)
+          simplifile.write(path, html)
+          |> result.map_error(SimplifileError)
+        }
 
-      Nil
-    }
-
-    Dynamic(path, pages) -> {
-      let _ = simplifile.create_directory_all(out_dir <> path)
-      use #(page, el) <- list.each(map.to_list(pages))
-      let path = out_dir <> trim_slash(path) <> "/" <> routify(page) <> ".html"
-      let html = element.to_string(el)
-      let assert Ok(_) = simplifile.write(path, html)
-
-      Nil
+        result.all(results)
+        |> result.map(fn(_) { Nil })
+      }
     }
   }
+  result.all(routes)
+  |> result.map(fn(_) { Nil })
 }
 
 // TYPES -----------------------------------------------------------------------
@@ -186,6 +197,11 @@ pub type UseIndexRoutes
 type Route {
   Static(path: String, page: Element(Nil))
   Dynamic(path: String, pages: Map(String, Element(Nil)))
+}
+
+//This type represents possible errors that can occur when building the site.
+pub type BuildError {
+  SimplifileError(simplifile.FileError)
 }
 
 // BUILDERS --------------------------------------------------------------------
