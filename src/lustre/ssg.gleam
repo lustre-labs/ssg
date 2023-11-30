@@ -26,6 +26,8 @@ pub fn new(
   )
 }
 
+const temp_build_dir = "build/.lustre/"
+
 /// Generate the static site. This will delete the output directory if it already
 /// exists and then generate all of the routes configured. If a static assets
 /// directory has been configured, its contents will be recursively copied into 
@@ -38,19 +40,23 @@ pub fn build(
 
   // There's nothing like Node's `path` module for Gleam yet so working with
   // paths and directories is a bit primitive. We'll be concating all of our
-  // routes to this `out_dir` and they'll all start with a leading slash. I don't
+  // routes to this `temp_build_dir` and they'll all start with a leading slash. I don't
   // want to have to deal with any weirdness of double slashes so we're just
   // removing it from the out_dir if it's there.
-  let out_dir = trim_slash(out_dir)
 
-  // Every build will generate a clean directory. Any files that already exist
-  // will be wiped, and any previously-generated routes will also be deleted and
-  // regenerated.
-  let _ = simplifile.delete(out_dir)
+  // Every build will first generate the site to a temporary directory. 
+  // This allows us to remove temporary files and directories without worrying
+  // about deleting the output directory if something goes wrong.
+
+  // Filesystem can throw Enoent when the directory does not exist,
+  // we ignore it to continue with it's creation afterwards
+  let _ = simplifile.delete(temp_build_dir)
 
   case static_dir {
-    Some(path) -> simplifile.copy_directory(path, out_dir)
-    None -> simplifile.create_directory_all(out_dir)
+    Some(path) -> simplifile.copy_directory(path, temp_build_dir)
+    None -> {
+      simplifile.create_directory_all(temp_build_dir)
+    }
   }
   let routes = list.sort(routes, fn(a, b) { string.compare(a.path, b.path) })
   let routes = {
@@ -58,7 +64,7 @@ pub fn build(
 
     case route {
       Static("/", el) -> {
-        let path = out_dir <> "/index.html"
+        let path = temp_build_dir <> "/index.html"
         let html = element.to_string(el)
 
         simplifile.write(path, html)
@@ -66,8 +72,8 @@ pub fn build(
       }
 
       Static(path, el) if use_index_routes -> {
-        let _ = simplifile.create_directory_all(out_dir <> path)
-        let path = out_dir <> trim_slash(path) <> "/index.html"
+        let _ = simplifile.create_directory_all(temp_build_dir <> path)
+        let path = temp_build_dir <> trim_slash(path) <> "/index.html"
         let html = element.to_string(el)
         simplifile.write(path, html)
         |> result.map_error(SimplifileError)
@@ -75,8 +81,8 @@ pub fn build(
 
       Static(path, el) -> {
         let #(path, name) = last_segment(path)
-        let _ = simplifile.create_directory_all(out_dir <> path)
-        let path = out_dir <> trim_slash(path) <> "/" <> name <> ".html"
+        let _ = simplifile.create_directory_all(temp_build_dir <> path)
+        let path = temp_build_dir <> trim_slash(path) <> "/" <> name <> ".html"
         let html = element.to_string(el)
         simplifile.write(path, html)
         |> result.map_error(SimplifileError)
@@ -84,10 +90,10 @@ pub fn build(
 
       Dynamic(path, pages) -> {
         let results = {
-          let _ = simplifile.create_directory_all(out_dir <> path)
+          let _ = simplifile.create_directory_all(temp_build_dir <> path)
           use #(page, el) <- list.map(map.to_list(pages))
           let path =
-            out_dir <> trim_slash(path) <> "/" <> routify(page) <> ".html"
+            temp_build_dir <> trim_slash(path) <> "/" <> routify(page) <> ".html"
           let html = element.to_string(el)
           simplifile.write(path, html)
           |> result.map_error(SimplifileError)
@@ -98,8 +104,38 @@ pub fn build(
       }
     }
   }
+  let out_dir = trim_slash(out_dir)
+
   result.all(routes)
-  |> result.map(fn(_) { Nil })
+  |> result.then(fn(_) {
+    let _ = delete_dir(out_dir)
+  })
+  |> result.then(fn(_) { copy_dir(temp_build_dir, out_dir) })
+  |> result.then(fn(_) { delete_dir(temp_build_dir) })
+  |> result.replace(Nil)
+  |> result.map_error(fn(e) {
+    let _ = delete_dir(temp_build_dir)
+    e
+  })
+}
+
+fn copy_dir(from: String, to: String) -> Result(Nil, BuildError) {
+  simplifile.copy_directory(from, to)
+  |> try_simplifile
+}
+
+fn delete_dir(path: String) -> Result(Nil, BuildError) {
+  simplifile.delete(path)
+  |> try_simplifile
+}
+
+fn try_simplifile(
+  result: Result(t, simplifile.FileError),
+) -> Result(Nil, BuildError) {
+  case result {
+    Ok(_) -> Ok(Nil)
+    Error(error) -> Error(SimplifileError(error))
+  }
 }
 
 // TYPES -----------------------------------------------------------------------
