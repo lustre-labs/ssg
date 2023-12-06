@@ -13,7 +13,7 @@ gleam = ">= 0.32.0"
 [dependencies]
 gleam_stdlib = "~> 0.32"
 lustre = "~> 3.0"
-simplifile = "~> 0.3.0"
+simplifile = "~> 1.0.0"
 
 [dev-dependencies]
 gleeunit = "~> 0.10"
