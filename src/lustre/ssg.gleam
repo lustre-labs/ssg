@@ -1,7 +1,7 @@
 // IMPORTS ---------------------------------------------------------------------
 
 import gleam/list
-import gleam/map.{type Map}
+import gleam/dict.{type Dict}
 import gleam/option.{type Option, None, Some}
 import gleam/regex
 import gleam/string
@@ -100,7 +100,7 @@ pub fn build(
 
       Dynamic(path, pages) -> {
         let _ = simplifile.create_directory_all(temp <> path)
-        use _, #(page, el) <- list.try_fold(map.to_list(pages), Nil)
+        use _, #(page, el) <- list.try_fold(dict.to_list(pages), Nil)
         let path = temp <> trim_slash(path) <> "/" <> routify(page) <> ".html"
         let html = element.to_string(el)
 
@@ -210,7 +210,7 @@ pub type UseIndexRoutes
 
 type Route {
   Static(path: String, page: Element(Nil))
-  Dynamic(path: String, pages: Map(String, Element(Nil)))
+  Dynamic(path: String, pages: Dict(String, Element(Nil)))
 }
 
 //This type represents possible errors that can occur when building the site.
@@ -275,13 +275,13 @@ pub fn add_static_route(
 pub fn add_dynamic_route(
   config: Config(has_static_routes, has_static_dir, use_index_routes),
   path: String,
-  data: Map(String, a),
+  data: Dict(String, a),
   page: fn(a) -> Element(b),
 ) -> Config(has_static_routes, has_static_dir, use_index_routes) {
   let route = {
     let path = routify(path)
     let pages =
-      map.map_values(
+      dict.map_values(
         data,
         fn(_, data) { element.map(page(data), fn(_) { Nil }) },
       )
