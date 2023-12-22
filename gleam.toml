@@ -8,12 +8,14 @@ links = [
   { title = "Website", href = "https://lustre.build" },
   { title = "Sponsor", href = "https://github.com/sponsors/hayleigh-dot-dev" },
 ]
-gleam = ">= 0.32.0"
+gleam = ">= 0.33.0"
 
 [dependencies]
-gleam_stdlib = "~> 0.32"
+gleam_stdlib = "~> 0.34"
 lustre = "~> 3.0"
 simplifile = "~> 1.0.0"
+jot = "~> 0.2"
+tom = "~> 0.3"
 
 [dev-dependencies]
-gleeunit = "~> 0.10"
+gleeunit = "~> 1.0"
