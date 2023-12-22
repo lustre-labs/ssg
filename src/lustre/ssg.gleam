@@ -21,6 +21,7 @@ pub fn new(
   Config(
     out_dir: out_dir,
     static_dir: None,
+    static_assets: dict.new(),
     routes: [],
     use_index_routes: False,
   )
@@ -44,7 +45,8 @@ const temp = "build/.lustre/"
 pub fn build(
   config: Config(HasStaticRoutes, has_static_dir, use_index_routes),
 ) -> Result(Nil, BuildError) {
-  let Config(out_dir, static_dir, routes, use_index_routes) = config
+  let Config(out_dir, static_dir, static_assets, routes, use_index_routes) =
+    config
   let out_dir = trim_slash(out_dir)
 
   // Filesystem can throw Enoent when the directory does not exist,
@@ -54,12 +56,20 @@ pub fn build(
   // Either of these branches create the temporary output directory. Unlike above
   // we're using `result.try` here because we definitely want to know if something
   // goes wrong!
-  use _ <- result.try(try_simplifile({
-    case static_dir {
-      Some(path) -> simplifile.copy_directory(path, temp)
-      None -> simplifile.create_directory_all(temp)
-    }
-  }))
+  use _ <- result.try(
+    try_simplifile({
+      case static_dir {
+        Some(path) -> simplifile.copy_directory(path, temp)
+        None -> simplifile.create_directory_all(temp)
+      }
+    }),
+  )
+
+  use _ <- result.try({
+    use #(path, content) <- list.try_map(dict.to_list(static_assets))
+
+    try_simplifile(simplifile.write(temp <> path, content))
+  })
 
   // Try to generate every route. By using `list.try_map` we can stop generating
   // routes as soon as one fails. This is useful because we don't want to generate
@@ -126,7 +136,7 @@ pub fn build(
 /// routes.
 /// 
 /// If you're looking at the generated documentation on hex.pm, these type parameters
-/// will be unhelpfully labelled "a", "b", "c", etc. Here's a look at what these
+/// might be unhelpfully labelled "a", "b", "c", etc. Here's a look at what these
 /// type parameters are called in the source code:
 /// 
 /// ```
@@ -164,6 +174,7 @@ pub opaque type Config(has_static_routes, has_static_dir, use_index_routes) {
   Config(
     out_dir: String,
     static_dir: Option(String),
+    static_assets: Dict(String, String),
     routes: List(Route),
     use_index_routes: Bool,
   )
@@ -213,7 +224,8 @@ type Route {
   Dynamic(path: String, pages: Dict(String, Element(Nil)))
 }
 
-//This type represents possible errors that can occur when building the site.
+/// This type represents possible errors that can occur when building the site.
+/// 
 pub type BuildError {
   SimplifileError(simplifile.FileError)
 }
@@ -237,13 +249,15 @@ pub fn add_static_route(
   path: String,
   page: Element(a),
 ) -> Config(HasStaticRoutes, has_static_dir, use_index_routes) {
-  let Config(out_dir, static_dir, routes, use_index_routes) = config
+  let Config(out_dir, static_dir, static_assets, routes, use_index_routes) =
+    config
   let route = Static(routify(path), element.map(page, fn(_) { Nil }))
 
   // We must reconstruct the `Config` entirely instead of using Gleam's spread
   // operator because we need to change the type of the configuration. Specifically,
   // we're adding the `HasStaticRoutes` type parameter.
-  Config(out_dir, static_dir, [route, ..routes], use_index_routes)
+  Config(out_dir, static_dir, static_assets, [route, ..routes], use_index_routes,
+  )
 }
 
 /// Configure a map of dynamic routes to be generated. As with `add_static_route`
@@ -281,10 +295,9 @@ pub fn add_dynamic_route(
   let route = {
     let path = routify(path)
     let pages =
-      dict.map_values(
-        data,
-        fn(_, data) { element.map(page(data), fn(_) { Nil }) },
-      )
+      dict.map_values(data, fn(_, data) {
+        element.map(page(data), fn(_) { Nil })
+      })
 
     Dynamic(path, pages)
   }
@@ -298,13 +311,35 @@ pub fn add_static_dir(
   config: Config(has_static_routes, NoStaticDir, use_index_routes),
   path: String,
 ) -> Config(has_static_routes, HasStaticDir, use_index_routes) {
-  let Config(out_dir, _, routes, use_index_routes) = config
+  let Config(out_dir, _, static_assets, routes, use_index_routes) = config
   let static_dir = routify(path)
 
   // We must reconstruct the `Config` entirely instead of using Gleam's spread
   // operator because we need to change the type of the configuration. Specifically,
   // we're adding the `HasStaticDir` type parameter.
-  Config(out_dir, Some(static_dir), routes, use_index_routes)
+  Config(out_dir, Some(static_dir), static_assets, routes, use_index_routes)
+}
+
+/// Include a static asset in the generated site. This might be something you 
+/// want to be generated at build time, like a robots.txt, a sitemap.xml, or
+/// an RSS feed.
+/// 
+/// The path should be the path that the asset will be available at when served
+/// by an HTTP server. For example, the path "/robots.txt" would be available at
+/// "https://your_site.com/robots.txt". The path will be converted to kebab-case
+/// and lowercased.
+/// 
+/// If you have configured a static assets directory to be copied over, any static
+/// asset added here will overwrite any file with the same path. 
+/// 
+pub fn add_static_asset(
+  config: Config(has_static_routes, has_static_dir, use_index_routes),
+  path: String,
+  content: String,
+) -> Config(has_static_routes, has_static_dir, use_index_routes) {
+  let static_assets = dict.insert(config.static_assets, routify(path), content)
+
+  Config(..config, static_assets: static_assets)
 }
 
 // CONFIGURATION ---------------------------------------------------------------
@@ -316,12 +351,12 @@ pub fn add_static_dir(
 pub fn use_index_routes(
   config: Config(has_static_routes, has_static_dir, use_index_routes),
 ) -> Config(has_static_routes, has_static_dir, UseIndexRoutes) {
-  let Config(out_dir, static_dir, routes, _) = config
+  let Config(out_dir, static_dir, static_assets, routes, _) = config
 
   // We must reconstruct the `Config` entirely instead of using Gleam's spread
   // operator because we need to change the type of the configuration. Specifically,
   // we're adding the `UseIndexRoutes` type parameter.
-  Config(out_dir, static_dir, routes, True)
+  Config(out_dir, static_dir, static_assets, routes, True)
 }
 
 // UTILS -----------------------------------------------------------------------
