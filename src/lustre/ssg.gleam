@@ -35,7 +35,7 @@ pub fn new(
 /// can't be run outside of a proper Gleam project, so the parent `build/` dir
 /// will always exist. 
 /// 
-const temp = "build/.lustre/"
+const temp = "build/.lustre"
 
 /// Generate the static site. This will delete the output directory if it already
 /// exists and then generate all of the routes configured. If a static assets
