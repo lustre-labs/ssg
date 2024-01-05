@@ -119,7 +119,13 @@ pub fn build(
     }
   })
 
-  use _ <- result.try(try_simplifile(simplifile.delete(out_dir)))
+  // If a previous build has already happened, we want to delete it and also
+  // make sure we catch any simplifile errors. But attempting to delete a directory
+  // that doesn't exist will throw an error so instead we do nothing.
+  use _ <- result.try(case simplifile.is_directory(out_dir) {
+    True -> try_simplifile(simplifile.delete(out_dir))
+    False -> Ok(Nil)
+  })
   use _ <- result.try(try_simplifile(simplifile.copy_directory(temp, out_dir)))
   use _ <- result.try(try_simplifile(simplifile.delete(temp)))
 
