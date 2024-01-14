@@ -86,35 +86,31 @@ pub fn build(
     case route {
       Static("/", el) -> {
         let path = temp <> "/index.html"
-        let html = element.to_string(el)
 
-        try_simplifile(simplifile.write(path, html))
+        write_html_page(path, el)
       }
 
       Static(path, el) if use_index_routes -> {
         let _ = simplifile.create_directory_all(temp <> path)
         let path = temp <> trim_slash(path) <> "/index.html"
-        let html = element.to_string(el)
 
-        try_simplifile(simplifile.write(path, html))
+        write_html_page(path, el)
       }
 
       Static(path, el) -> {
         let #(path, name) = last_segment(path)
         let _ = simplifile.create_directory_all(temp <> path)
         let path = temp <> trim_slash(path) <> "/" <> name <> ".html"
-        let html = element.to_string(el)
 
-        try_simplifile(simplifile.write(path, html))
+        write_html_page(path, el)
       }
 
       Dynamic(path, pages) -> {
         let _ = simplifile.create_directory_all(temp <> path)
         use _, #(page, el) <- list.try_fold(dict.to_list(pages), Nil)
         let path = temp <> trim_slash(path) <> "/" <> routify(page) <> ".html"
-        let html = element.to_string(el)
 
-        try_simplifile(simplifile.write(path, html))
+        write_html_page(path, el)
       }
     }
   })
@@ -130,6 +126,11 @@ pub fn build(
   use _ <- result.try(try_simplifile(simplifile.delete(temp)))
 
   Ok(Nil)
+}
+
+fn write_html_page(path: String, element: Element(a)) -> Result(Nil, BuildError) {
+  let html = "<!DOCTYPE html>" <> element.to_string(element)
+  try_simplifile(simplifile.write(path, html))
 }
 
 // TYPES -----------------------------------------------------------------------
