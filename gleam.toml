@@ -1,9 +1,9 @@
 name = "lustre_ssg"
-version = "0.3.2"
+version = "0.4.0"
 description = "A simple static site generator for Lustre projects."
 
 licences = ["MIT"]
-repository = { type = "github", user = "lustre-labs", repo = "lustre_ssg" }
+repository = { type = "github", user = "lustre-labs", repo = "ssg" }
 links = [
   { title = "Website", href = "https://lustre.build" },
   { title = "Sponsor", href = "https://github.com/sponsors/hayleigh-dot-dev" },
