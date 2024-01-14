@@ -116,7 +116,7 @@ pub fn build(
         let path = temp <> trim_slash(path) <> "/" <> routify(page) <> ".html"
 
         to_html_document(el)
-        |> simplifile.write(path, html)
+        |> simplifile.write(path, _)
         |> result.map_error(CannotGenerateRoute(_, path))
       }
     }
