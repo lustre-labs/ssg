@@ -57,18 +57,17 @@ pub fn build(
   // we're using `result.try` here because we definitely want to know if something
   // goes wrong!
   use _ <- result.try(
-    try_simplifile({
-      case static_dir {
-        Some(path) -> simplifile.copy_directory(path, temp)
-        None -> simplifile.create_directory_all(temp)
-      }
-    }),
+    case static_dir {
+      Some(path) -> simplifile.copy_directory(path, temp)
+      None -> simplifile.create_directory_all(temp)
+    }
+    |> result.map_error(CannotCreateTempDirectory),
   )
 
   use _ <- result.try({
     use #(path, content) <- list.try_map(dict.to_list(static_assets))
-
-    try_simplifile(simplifile.write(temp <> path, content))
+    simplifile.write(temp <> path, content)
+    |> result.map_error(CannotWriteStaticAsset(_, path))
   })
 
   // Try to generate every route. By using `list.try_map` we can stop generating
@@ -88,7 +87,8 @@ pub fn build(
         let path = temp <> "/index.html"
         let html = element.to_string(el)
 
-        try_simplifile(simplifile.write(path, html))
+        simplifile.write(path, html)
+        |> result.map_error(CannotGenerateRoute(_, path))
       }
 
       Static(path, el) if use_index_routes -> {
@@ -96,7 +96,8 @@ pub fn build(
         let path = temp <> trim_slash(path) <> "/index.html"
         let html = element.to_string(el)
 
-        try_simplifile(simplifile.write(path, html))
+        simplifile.write(path, html)
+        |> result.map_error(CannotGenerateRoute(_, path))
       }
 
       Static(path, el) -> {
@@ -105,7 +106,8 @@ pub fn build(
         let path = temp <> trim_slash(path) <> "/" <> name <> ".html"
         let html = element.to_string(el)
 
-        try_simplifile(simplifile.write(path, html))
+        simplifile.write(path, html)
+        |> result.map_error(CannotGenerateRoute(_, path))
       }
 
       Dynamic(path, pages) -> {
@@ -114,7 +116,8 @@ pub fn build(
         let path = temp <> trim_slash(path) <> "/" <> routify(page) <> ".html"
         let html = element.to_string(el)
 
-        try_simplifile(simplifile.write(path, html))
+        simplifile.write(path, html)
+        |> result.map_error(CannotGenerateRoute(_, path))
       }
     }
   })
@@ -123,11 +126,19 @@ pub fn build(
   // make sure we catch any simplifile errors. But attempting to delete a directory
   // that doesn't exist will throw an error so instead we do nothing.
   use _ <- result.try(case simplifile.is_directory(out_dir) {
-    True -> try_simplifile(simplifile.delete(out_dir))
+    True ->
+      simplifile.delete(out_dir)
+      |> result.map_error(CannotWriteToOutputDir)
     False -> Ok(Nil)
   })
-  use _ <- result.try(try_simplifile(simplifile.copy_directory(temp, out_dir)))
-  use _ <- result.try(try_simplifile(simplifile.delete(temp)))
+  use _ <- result.try(
+    simplifile.copy_directory(temp, out_dir)
+    |> result.map_error(CannotWriteToOutputDir),
+  )
+  use _ <- result.try(
+    simplifile.delete(temp)
+    |> result.map_error(CannotCleanupTempDir),
+  )
 
   Ok(Nil)
 }
@@ -233,7 +244,32 @@ type Route {
 /// This type represents possible errors that can occur when building the site.
 /// 
 pub type BuildError {
-  SimplifileError(simplifile.FileError)
+  /// An error that can occur when trying to create a temporary directory to
+  /// work in: when generating a static site, lustre_ssg first writes all the
+  /// files in a temporary directory. After the generation is over, all the
+  /// contents of the temporary directory are copied over to the actual output
+  /// directory.
+  /// 
+  CannotCreateTempDirectory(reason: simplifile.FileError)
+
+  /// An error that can occur when trying to write a static asset to a given
+  /// path.
+  /// 
+  CannotWriteStaticAsset(reason: simplifile.FileError, path: String)
+
+  /// An error that can occur when trying to generate a route at a given path.
+  /// 
+  CannotGenerateRoute(reason: simplifile.FileError, path: String)
+
+  /// An error that can occur when the building step is over and all generated
+  /// documents are moved from the temporary directory to the actual output
+  /// directory.
+  /// 
+  CannotWriteToOutputDir(reason: simplifile.FileError)
+
+  /// An error that can occur when trying to delete the temporary directory.
+  /// 
+  CannotCleanupTempDir(reason: simplifile.FileError)
 }
 
 // BUILDERS --------------------------------------------------------------------
@@ -388,8 +424,4 @@ fn last_segment(path: String) -> #(String, String) {
     regex.scan(segments, path)
 
   #(leading, last)
-}
-
-fn try_simplifile(res: Result(a, simplifile.FileError)) -> Result(a, BuildError) {
-  result.map_error(res, SimplifileError)
 }
