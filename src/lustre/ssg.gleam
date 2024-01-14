@@ -85,18 +85,18 @@ pub fn build(
     case route {
       Static("/", el) -> {
         let path = temp <> "/index.html"
-        let html = element.to_string(el)
 
-        simplifile.write(path, html)
+        to_html_document(el)
+        |> simplifile.write(path, _)
         |> result.map_error(CannotGenerateRoute(_, path))
       }
 
       Static(path, el) if use_index_routes -> {
         let _ = simplifile.create_directory_all(temp <> path)
         let path = temp <> trim_slash(path) <> "/index.html"
-        let html = element.to_string(el)
 
-        simplifile.write(path, html)
+        to_html_document(el)
+        |> simplifile.write(path, _)
         |> result.map_error(CannotGenerateRoute(_, path))
       }
 
@@ -104,9 +104,9 @@ pub fn build(
         let #(path, name) = last_segment(path)
         let _ = simplifile.create_directory_all(temp <> path)
         let path = temp <> trim_slash(path) <> "/" <> name <> ".html"
-        let html = element.to_string(el)
 
-        simplifile.write(path, html)
+        to_html_document(el)
+        |> simplifile.write(path, _)
         |> result.map_error(CannotGenerateRoute(_, path))
       }
 
@@ -114,9 +114,9 @@ pub fn build(
         let _ = simplifile.create_directory_all(temp <> path)
         use _, #(page, el) <- list.try_fold(dict.to_list(pages), Nil)
         let path = temp <> trim_slash(path) <> "/" <> routify(page) <> ".html"
-        let html = element.to_string(el)
 
-        simplifile.write(path, html)
+        to_html_document(el)
+        |> simplifile.write(path, html)
         |> result.map_error(CannotGenerateRoute(_, path))
       }
     }
@@ -424,4 +424,8 @@ fn last_segment(path: String) -> #(String, String) {
     regex.scan(segments, path)
 
   #(leading, last)
+}
+
+fn to_html_document(element: Element(a)) -> String {
+  "<!DOCTYPE html>" <> element.to_string(element)
 }
