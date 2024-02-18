@@ -125,7 +125,10 @@ pub fn build(
   // If a previous build has already happened, we want to delete it and also
   // make sure we catch any simplifile errors. But attempting to delete a directory
   // that doesn't exist will throw an error so instead we do nothing.
-  use _ <- result.try(case simplifile.is_directory(out_dir) {
+  use _ <- result.try(case
+    simplifile.verify_is_directory(out_dir)
+    |> result.unwrap(False)
+  {
     True ->
       simplifile.delete(out_dir)
       |> result.map_error(CannotWriteToOutputDir)
@@ -298,7 +301,12 @@ pub fn add_static_route(
   // We must reconstruct the `Config` entirely instead of using Gleam's spread
   // operator because we need to change the type of the configuration. Specifically,
   // we're adding the `HasStaticRoutes` type parameter.
-  Config(out_dir, static_dir, static_assets, [route, ..routes], use_index_routes,
+  Config(
+    out_dir,
+    static_dir,
+    static_assets,
+    [route, ..routes],
+    use_index_routes,
   )
 }
 
