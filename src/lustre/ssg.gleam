@@ -14,7 +14,7 @@ import simplifile
 /// Initialise a new configuration for the static site generator. If you pass a
 /// relative path it will be resolved relative to the current working directory,
 /// _not_ the directory of the Gleam file.
-/// 
+///
 pub fn new(
   out_dir: String,
 ) -> Config(NoStaticRoutes, NoStaticDir, UseDirectRoutes) {
@@ -27,21 +27,21 @@ pub fn new(
   )
 }
 
-// Every build will first generate the site to a temporary directory. 
+// Every build will first generate the site to a temporary directory.
 // This allows us to remove temporary files and directories without worrying
 // about deleting the output directory if something goes wrong.
 //
 /// This path is resolved relative to the current working directory. Gleam programs
 /// can't be run outside of a proper Gleam project, so the parent `build/` dir
-/// will always exist. 
-/// 
+/// will always exist.
+///
 const temp = "build/.lustre"
 
 /// Generate the static site. This will delete the output directory if it already
 /// exists and then generate all of the routes configured. If a static assets
-/// directory has been configured, its contents will be recursively copied into 
+/// directory has been configured, its contents will be recursively copied into
 /// the output directory **before** any routes are generated.
-/// 
+///
 pub fn build(
   config: Config(HasStaticRoutes, has_static_dir, use_index_routes),
 ) -> Result(Nil, BuildError) {
@@ -72,7 +72,7 @@ pub fn build(
 
   // Try to generate every route. By using `list.try_map` we can stop generating
   // routes as soon as one fails. This is useful because we don't want to generate
-  // garbage 
+  // garbage
   //
   // If any of these do fail, we exit out of the build without performing any
   // cleanup. This means in temp directory will be left with the partially generated
@@ -86,7 +86,8 @@ pub fn build(
       Static("/", el) -> {
         let path = temp <> "/index.html"
 
-        to_html_document(el)
+        el
+        |> element.to_document_string
         |> simplifile.write(path, _)
         |> result.map_error(CannotGenerateRoute(_, path))
       }
@@ -95,7 +96,8 @@ pub fn build(
         let _ = simplifile.create_directory_all(temp <> path)
         let path = temp <> trim_slash(path) <> "/index.html"
 
-        to_html_document(el)
+        el
+        |> element.to_document_string
         |> simplifile.write(path, _)
         |> result.map_error(CannotGenerateRoute(_, path))
       }
@@ -105,7 +107,8 @@ pub fn build(
         let _ = simplifile.create_directory_all(temp <> path)
         let path = temp <> trim_slash(path) <> "/" <> name <> ".html"
 
-        to_html_document(el)
+        el
+        |> element.to_document_string
         |> simplifile.write(path, _)
         |> result.map_error(CannotGenerateRoute(_, path))
       }
@@ -115,7 +118,8 @@ pub fn build(
         use _, #(page, el) <- list.try_fold(dict.to_list(pages), Nil)
         let path = temp <> trim_slash(path) <> "/" <> routify(page) <> ".html"
 
-        to_html_document(el)
+        el
+        |> element.to_document_string
         |> simplifile.write(path, _)
         |> result.map_error(CannotGenerateRoute(_, path))
       }
@@ -150,15 +154,15 @@ pub fn build(
 
 /// The `Config` type tells `lustre_ssg` how to generate your site. It includes
 /// things like the output directory and any routes you have configured.
-/// 
+///
 /// The type parameters are used to track different facts about the configuration
 /// and prevent silly things from happening like building a site with no guaranteed
 /// routes.
-/// 
+///
 /// If you're looking at the generated documentation on hex.pm, these type parameters
 /// might be unhelpfully labelled "a", "b", "c", etc. Here's a look at what these
 /// type parameters are called in the source code:
-/// 
+///
 /// ```
 /// pub opaque type Config(
 ///   has_static_routes,
@@ -166,30 +170,30 @@ pub fn build(
 ///   use_index_routes
 /// )
 /// ```
-/// 
+///
 /// - `has_static_routes` indicates whether or not the configuration has at least
 ///   one static route and so is guarnateed to generate at least one HTML file.
 ///   It will be either `HasStaticRoutes` or `NoStaticRoutes`.
-/// 
+///
 ///   You need to add at least one static route before you can build your site
 ///   using [`build`](#build). This is to prevent you from providing empty dynamic
 ///   routes and accidentally building nothing.
-/// 
+///
 /// - `has_static_dir` indicates whether or not the configuration has a static
 ///   assets directory to copy. It will be either `HasStaticDir` or `NoStaticDir`.
-/// 
+///
 ///   The [`build`](#build) function will run regardless, but you may choose to
 ///   wrap this function yourself to provider stricter compile-time guarantees
 ///   if you want to ensure that your static assets are always configured.
-/// 
+///
 /// - `use_index_routes` indicates whether or not the configuration will generate
 ///   HTML files that correspond directly to the route provided or if an index.html
 ///   file will be generated at the route provided. It will be either `UseDirectRoutes`
 ///   or `UseIndexRoutes`.
-/// 
+///
 ///   As with `has_static_dir`, the [`build`](#build) function will run regardless,
 ///   but you may use this parameter for stricter compile-time guarantees.
-/// 
+///
 pub opaque type Config(has_static_routes, has_static_dir, use_index_routes) {
   Config(
     out_dir: String,
@@ -202,41 +206,41 @@ pub opaque type Config(has_static_routes, has_static_dir, use_index_routes) {
 
 /// This type is used to tag the `Config` through the different builder functions.
 /// It indicates a configuration that will not generate any static routes.
-/// 
+///
 /// Your configuration must have at least one static route before it can be passed
 /// to `build`. This is to prevent you from accidentally building a completely
 /// empty site.
-/// 
+///
 pub type NoStaticRoutes
 
 /// This type is used to tag the `Config` through the different builder functions.
 /// It indicates a configuration that does not have a statica ssets directory to
 /// copy.
-/// 
+///
 pub type NoStaticDir
 
 /// This type is used to tag the `Config` through the different builder functions.
 /// It indicates a configuration that will generate least one static route.
-/// 
+///
 pub type HasStaticRoutes
 
 /// This type is used to tag the `Config` through the different builder functions.
 /// It indicates a configuration that has a static assets directory to copy.
-/// 
+///
 pub type HasStaticDir
 
 /// This type is used to tag the `Config` through the different builder functions.
 /// It indicates a configuration that will generate HTML files that correspond
 /// directly to the route provided, for example the route "/blog" will generate
 /// a file at "/blog.html".
-/// 
+///
 pub type UseDirectRoutes
 
 /// This type is used to tag the `Config` through the different builder functions.
 /// It indicates a configuration that will generate an `index.html` file at the
 /// route provided, for example the route "/blog" will generate a file at
 /// "/blog/index.html".
-/// 
+///
 pub type UseIndexRoutes
 
 type Route {
@@ -245,33 +249,33 @@ type Route {
 }
 
 /// This type represents possible errors that can occur when building the site.
-/// 
+///
 pub type BuildError {
   /// An error that can occur when trying to create a temporary directory to
   /// work in: when generating a static site, lustre_ssg first writes all the
   /// files in a temporary directory. After the generation is over, all the
   /// contents of the temporary directory are copied over to the actual output
   /// directory.
-  /// 
+  ///
   CannotCreateTempDirectory(reason: simplifile.FileError)
 
   /// An error that can occur when trying to write a static asset to a given
   /// path.
-  /// 
+  ///
   CannotWriteStaticAsset(reason: simplifile.FileError, path: String)
 
   /// An error that can occur when trying to generate a route at a given path.
-  /// 
+  ///
   CannotGenerateRoute(reason: simplifile.FileError, path: String)
 
   /// An error that can occur when the building step is over and all generated
   /// documents are moved from the temporary directory to the actual output
   /// directory.
-  /// 
+  ///
   CannotWriteToOutputDir(reason: simplifile.FileError)
 
   /// An error that can occur when trying to delete the temporary directory.
-  /// 
+  ///
   CannotCleanupTempDir(reason: simplifile.FileError)
 }
 
@@ -280,15 +284,15 @@ pub type BuildError {
 /// Configure a static route to be generated. The path should be the route that
 /// the page will be available at when served by a HTTP server. For example the
 /// path "/blog" would be available at "https://your_site.com/blog".
-/// 
+///
 /// You need to add at least one static route before you can build your site. This
 /// is to prevent you from providing empty dynamic routes and accidentally building
-/// nothing. 
-/// 
+/// nothing.
+///
 /// Paths are converted to kebab-case and lowercased. This means that the path
 /// "/Blog" will be available at "/blog" and and "/About me" will be available at
 /// "/about-me".
-/// 
+///
 pub fn add_static_route(
   config: Config(has_static_routes, has_static_dir, use_index_routes),
   path: String,
@@ -313,29 +317,29 @@ pub fn add_static_route(
 /// Configure a map of dynamic routes to be generated. As with `add_static_route`
 /// the base path should be the route that each page will be available at when
 /// served by a HTTP server.
-/// 
+///
 /// The initial path is the base for all dynamic routes to be generated. The
 /// keys of the `data` map will be used to generate the dynamic routes. For
 /// example, to generate dynamic routes for a blog where each page is a post
 /// with the route "/blog/:post" you might do:
-/// 
+///
 /// ```gleam
 /// let posts = [
 ///   #("hello-world", Post(...)),
 ///   #("why-lustre-is-great", Post(...)),
 /// ]
-/// 
+///
 /// ...
-/// 
+///
 /// ssg.config("./dist")
 /// |> ...
 /// |> ssg.add_dynamic_route("/blog", posts, render_post)
 /// ```
-/// 
+///
 /// Paths are converted to kebab-case and lowercased. This means that the path
 /// "/Blog" will be available at "/blog" and and "/About me" will be available at
 /// "/about-me".
-/// 
+///
 pub fn add_dynamic_route(
   config: Config(has_static_routes, has_static_dir, use_index_routes),
   path: String,
@@ -356,7 +360,7 @@ pub fn add_dynamic_route(
 }
 
 ///
-/// 
+///
 pub fn add_static_dir(
   config: Config(has_static_routes, NoStaticDir, use_index_routes),
   path: String,
@@ -370,18 +374,18 @@ pub fn add_static_dir(
   Config(out_dir, Some(static_dir), static_assets, routes, use_index_routes)
 }
 
-/// Include a static asset in the generated site. This might be something you 
+/// Include a static asset in the generated site. This might be something you
 /// want to be generated at build time, like a robots.txt, a sitemap.xml, or
 /// an RSS feed.
-/// 
+///
 /// The path should be the path that the asset will be available at when served
 /// by an HTTP server. For example, the path "/robots.txt" would be available at
 /// "https://your_site.com/robots.txt". The path will be converted to kebab-case
 /// and lowercased.
-/// 
+///
 /// If you have configured a static assets directory to be copied over, any static
-/// asset added here will overwrite any file with the same path. 
-/// 
+/// asset added here will overwrite any file with the same path.
+///
 pub fn add_static_asset(
   config: Config(has_static_routes, has_static_dir, use_index_routes),
   path: String,
@@ -397,7 +401,7 @@ pub fn add_static_asset(
 /// Configure the static site generator to generate an `index.html` file at any
 /// static route provided. For example, the route "/blog" will generate a file
 /// at "/blog/index.html".
-/// 
+///
 pub fn use_index_routes(
   config: Config(has_static_routes, has_static_dir, use_index_routes),
 ) -> Config(has_static_routes, has_static_dir, UseIndexRoutes) {
@@ -432,8 +436,4 @@ fn last_segment(path: String) -> #(String, String) {
     regex.scan(segments, path)
 
   #(leading, last)
-}
-
-fn to_html_document(element: Element(a)) -> String {
-  "<!DOCTYPE html>" <> element.to_string(element)
 }
