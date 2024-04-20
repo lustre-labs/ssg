@@ -18,26 +18,28 @@ import tom.{type Toml}
 /// A renderer for a djot document knows how to turn each block or inline element
 /// into some custom view. That view could be anything, but it's typically a
 /// Lustre element.
-/// 
+///
 /// Some ideas for other renderers include:
-/// 
+///
 /// - A renderer that turns a djot document into a JSON object
 /// - A renderer that generates a table of contents
 /// - A renderer that generates Nakai elements instead of Lustre ones
-/// 
+///
 /// Sometimes a custom renderer might need access to the TOML metadata of a
 /// document. For that, take a look at the [`render_with_metadata`](#render_with_metadata)
 /// function.
-/// 
-/// This renderer is compatible with **v0.2.1** of the [jot](https://hexdocs.pm/jot/jot.html)
+///
+/// This renderer is compatible with **v0.4.0** of the [jot](https://hexdocs.pm/jot/jot.html)
 /// package.
-/// 
+///
 pub type Renderer(view) {
   Renderer(
     codeblock: fn(Dict(String, String), Option(String), String) -> view,
+    emphasis: fn(List(view)) -> view,
     heading: fn(Dict(String, String), Int, List(view)) -> view,
     link: fn(jot.Destination, Dict(String, String), List(view)) -> view,
     paragraph: fn(Dict(String, String), List(view)) -> view,
+    strong: fn(List(view)) -> view,
     text: fn(String) -> view,
   )
 }
@@ -47,7 +49,7 @@ pub type Renderer(view) {
 /// The default renderer generates some sensible Lustre elements from a djot
 /// document. You can use this if you need a quick drop-in renderer for some
 /// markup in a Lustre project.
-/// 
+///
 pub fn default_renderer() -> Renderer(Element(msg)) {
   let to_attributes = fn(attrs) {
     use attrs, key, val <- dict.fold(attrs, [])
@@ -61,6 +63,7 @@ pub fn default_renderer() -> Renderer(Element(msg)) {
         html.code([attribute("data-lang", lang)], [element.text(code)]),
       ])
     },
+    emphasis: fn(content) { html.em([], content) },
     heading: fn(attrs, level, content) {
       case level {
         1 -> html.h1(to_attributes(attrs), content)
@@ -90,6 +93,7 @@ pub fn default_renderer() -> Renderer(Element(msg)) {
       }
     },
     paragraph: fn(attrs, content) { html.p(to_attributes(attrs), content) },
+    strong: fn(content) { html.strong([], content) },
     text: fn(text) { element.text(text) },
   )
 }
@@ -98,21 +102,21 @@ pub fn default_renderer() -> Renderer(Element(msg)) {
 
 /// Extract the frontmatter string from a djot document. Frontmatter is anything
 /// between two lines of three dashes, like this:
-/// 
+///
 /// ```djot
 /// ---
 /// title = "My Document"
 /// ---
-/// 
+///
 /// # My Document
-/// 
+///
 /// ...
 /// ```
-/// 
+///
 /// The document **must** start with exactly three dashes and a newline for there
 /// to be any frontmatter. If there is no frontmatter, this function returns
 /// `Error(Nil)`,
-/// 
+///
 pub fn frontmatter(document: String) -> Result(String, Nil) {
   use <- bool.guard(!string.starts_with(document, "---"), Error(Nil))
   let options = regex.Options(case_insensitive: False, multi_line: True)
@@ -132,9 +136,9 @@ pub fn frontmatter(document: String) -> Result(String, Nil) {
 /// Extract the TOML metadata from a djot document. This takes the [`frontmatter`](#frontmatter)
 /// and parses it as TOML. If there is *no* frontmatter, this function returns
 /// an empty dictionary.
-/// 
+///
 /// If the frontmatter is invalid TOML, this function returns a TOML parse error.
-/// 
+///
 pub fn metadata(document: String) -> Result(Dict(String, Toml), tom.ParseError) {
   case frontmatter(document) {
     Ok(frontmatter) -> tom.parse(frontmatter)
@@ -144,7 +148,7 @@ pub fn metadata(document: String) -> Result(Dict(String, Toml), tom.ParseError) 
 
 /// Extract the djot content from a document with optional frontmatter. If the
 /// document does not have frontmatter, this acts as an identity function.
-/// 
+///
 pub fn content(document: String) -> String {
   let toml = frontmatter(document)
 
@@ -158,7 +162,7 @@ pub fn content(document: String) -> String {
 
 /// Render a djot document using the given renderer. If the document contains
 /// [`frontmatter`](#frontmatter) it is stripped out before rendering.
-/// 
+///
 pub fn render(document: String, renderer: Renderer(view)) -> List(view) {
   let content = content(document)
   let Document(content, references) = jot.parse(content)
@@ -172,7 +176,7 @@ pub fn render(document: String, renderer: Renderer(view)) -> List(view) {
 /// is invalid TOML this function will return the TOML parse error, but if there
 /// is no frontmatter to parse this function will succeed and just pass an empty
 /// dictionary to the renderer.
-/// 
+///
 pub fn render_with_metadata(
   document: String,
   renderer: fn(Dict(String, Toml)) -> Renderer(view),
@@ -236,6 +240,16 @@ fn render_inline(
         references,
         list.map(content, render_inline(_, references, renderer)),
       )
+    }
+
+    jot.Emphasis(content) -> {
+      renderer.emphasis(
+        list.map(content, render_inline(_, references, renderer)),
+      )
+    }
+
+    jot.Strong(content) -> {
+      renderer.strong(list.map(content, render_inline(_, references, renderer)))
     }
   }
 }
