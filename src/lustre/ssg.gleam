@@ -1,11 +1,11 @@
 // IMPORTS ---------------------------------------------------------------------
 
-import gleam/list
 import gleam/dict.{type Dict}
+import gleam/list
 import gleam/option.{type Option, None, Some}
 import gleam/regex
-import gleam/string
 import gleam/result
+import gleam/string
 import lustre/element.{type Element}
 import simplifile
 
@@ -120,6 +120,18 @@ pub fn build(
 
         el
         |> element.to_document_string
+        |> simplifile.write(path, _)
+        |> result.map_error(CannotGenerateRoute(_, path))
+      }
+
+      Xml(path, el) -> {
+        let #(path, name) = last_segment(path)
+        let _ = simplifile.create_directory_all(temp <> path)
+        let path = temp <> trim_slash(path) <> "/" <> name <> ".xml"
+
+        el
+        |> element.to_string
+        |> string.append("<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n", _)
         |> simplifile.write(path, _)
         |> result.map_error(CannotGenerateRoute(_, path))
       }
@@ -246,6 +258,7 @@ pub type UseIndexRoutes
 type Route {
   Static(path: String, page: Element(Nil))
   Dynamic(path: String, pages: Dict(String, Element(Nil)))
+  Xml(path: String, page: Element(Nil))
 }
 
 /// This type represents possible errors that can occur when building the site.
@@ -301,6 +314,29 @@ pub fn add_static_route(
   let Config(out_dir, static_dir, static_assets, routes, use_index_routes) =
     config
   let route = Static(routify(path), element.map(page, fn(_) { Nil }))
+
+  // We must reconstruct the `Config` entirely instead of using Gleam's spread
+  // operator because we need to change the type of the configuration. Specifically,
+  // we're adding the `HasStaticRoutes` type parameter.
+  Config(
+    out_dir,
+    static_dir,
+    static_assets,
+    [route, ..routes],
+    use_index_routes,
+  )
+}
+
+///
+///
+pub fn add_static_xml(
+  config: Config(has_static_routes, has_static_dir, use_index_routes),
+  path: String,
+  page: Element(a),
+) -> Config(has_static_routes, has_static_dir, use_index_routes) {
+  let Config(out_dir, static_dir, static_assets, routes, use_index_routes) =
+    config
+  let route = Xml(routify(path), element.map(page, fn(_) { Nil }))
 
   // We must reconstruct the `Config` entirely instead of using Gleam's spread
   // operator because we need to change the type of the configuration. Specifically,
