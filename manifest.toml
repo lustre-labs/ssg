@@ -18,7 +18,7 @@ packages = [
 [requirements]
 gleam_stdlib = { version = "~> 0.34" }
 gleeunit = { version = "~> 1.0" }
-jot = { version = "~> 0.4" }
+jot = { version = "0.4.0" }
 lustre = { version = "~> 4.0" }
 simplifile = { version = "~> 1.5" }
 tom = { version = "~> 0.3" }
