@@ -395,19 +395,19 @@ pub fn add_dynamic_route(
   Config(..config, routes: [route, ..config.routes])
 }
 
-///
+/// Include a static directory from which all files will be copied over into
+/// the temporary build directory before building the site.
 ///
 pub fn add_static_dir(
   config: Config(has_static_routes, NoStaticDir, use_index_routes),
   path: String,
 ) -> Config(has_static_routes, HasStaticDir, use_index_routes) {
   let Config(out_dir, _, static_assets, routes, use_index_routes) = config
-  let static_dir = routify(path)
 
   // We must reconstruct the `Config` entirely instead of using Gleam's spread
   // operator because we need to change the type of the configuration. Specifically,
   // we're adding the `HasStaticDir` type parameter.
-  Config(out_dir, Some(static_dir), static_assets, routes, use_index_routes)
+  Config(out_dir, Some(path), static_assets, routes, use_index_routes)
 }
 
 /// Include a static asset in the generated site. This might be something you
