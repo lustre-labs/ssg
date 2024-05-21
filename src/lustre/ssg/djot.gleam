@@ -41,6 +41,7 @@ pub type Renderer(view) {
     paragraph: fn(Dict(String, String), List(view)) -> view,
     strong: fn(List(view)) -> view,
     text: fn(String) -> view,
+    code: fn(String) -> view,
   )
 }
 
@@ -95,6 +96,7 @@ pub fn default_renderer() -> Renderer(Element(msg)) {
     paragraph: fn(attrs, content) { html.p(to_attributes(attrs), content) },
     strong: fn(content) { html.strong([], content) },
     text: fn(text) { element.text(text) },
+    code: fn(content) { html.code([], [element.text(content)]) },
   )
 }
 
@@ -250,6 +252,10 @@ fn render_inline(
 
     jot.Strong(content) -> {
       renderer.strong(list.map(content, render_inline(_, references, renderer)))
+    }
+
+    jot.Code(content) -> {
+      renderer.code(content)
     }
   }
 }

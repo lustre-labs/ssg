@@ -14,7 +14,7 @@ gleam = ">= 0.33.0"
 gleam_stdlib = "~> 0.34"
 lustre = "~> 4.0"
 simplifile = "~> 1.5"
-jot = "0.4.0"
+jot = "0.5.0"
 tom = "~> 0.3"
 
 [dev-dependencies]
