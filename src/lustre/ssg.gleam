@@ -8,6 +8,7 @@ import gleam/result
 import gleam/string
 import lustre/element.{type Element}
 import simplifile
+import temporary
 
 // MAIN ------------------------------------------------------------------------
 
@@ -27,16 +28,6 @@ pub fn new(
   )
 }
 
-// Every build will first generate the site to a temporary directory.
-// This allows us to remove temporary files and directories without worrying
-// about deleting the output directory if something goes wrong.
-//
-/// This path is resolved relative to the current working directory. Gleam programs
-/// can't be run outside of a proper Gleam project, so the parent `build/` dir
-/// will always exist.
-///
-const temp = "build/.lustre"
-
 /// Generate the static site. This will delete the output directory if it already
 /// exists and then generate all of the routes configured. If a static assets
 /// directory has been configured, its contents will be recursively copied into
@@ -45,13 +36,25 @@ const temp = "build/.lustre"
 pub fn build(
   config: Config(HasStaticRoutes, has_static_dir, use_index_routes),
 ) -> Result(Nil, BuildError) {
+  case do_build(config) {
+    Ok(result) -> result
+    Error(error) -> Error(CannotCreateTempDirectory(error))
+  }
+}
+
+/// Generate the static site. This will delete the output directory if it already
+/// exists and then generate all of the routes configured. If a static assets
+/// directory has been configured, its contents will be recursively copied into
+/// the output directory **before** any routes are generated.
+///
+fn do_build(
+  config: Config(HasStaticRoutes, has_static_dir, use_index_routes),
+) -> Result(Result(Nil, BuildError), simplifile.FileError) {
   let Config(out_dir, static_dir, static_assets, routes, use_index_routes) =
     config
   let out_dir = trim_slash(out_dir)
 
-  // Filesystem can throw Enoent when the directory does not exist,
-  // we ignore it to continue with it's creation afterwards
-  let _ = simplifile.delete(temp)
+  use temp <- temporary.create(temporary.directory())
 
   // Either of these branches create the temporary output directory. Unlike above
   // we're using `result.try` here because we definitely want to know if something
@@ -153,10 +156,6 @@ pub fn build(
   use _ <- result.try(
     simplifile.copy_directory(temp, out_dir)
     |> result.map_error(CannotWriteToOutputDir),
-  )
-  use _ <- result.try(
-    simplifile.delete(temp)
-    |> result.map_error(CannotCleanupTempDir),
   )
 
   Ok(Nil)
