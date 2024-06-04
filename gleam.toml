@@ -16,6 +16,7 @@ jot = "1.0.0"
 lustre = "~> 4.0"
 tom = "~> 0.3"
 simplifile = ">= 2.0.0 and < 3.0.0"
+temporary = ">= 1.0.0 and < 2.0.0"
 
 [dev-dependencies]
 gleeunit = "~> 1.0"
