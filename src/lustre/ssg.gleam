@@ -142,7 +142,7 @@ pub fn build(
   // make sure we catch any simplifile errors. But attempting to delete a directory
   // that doesn't exist will throw an error so instead we do nothing.
   use _ <- result.try(case
-    simplifile.verify_is_directory(out_dir)
+    simplifile.is_directory(out_dir)
     |> result.unwrap(False)
   {
     True ->
