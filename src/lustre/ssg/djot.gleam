@@ -29,7 +29,7 @@ import tom.{type Toml}
 /// document. For that, take a look at the [`render_with_metadata`](#render_with_metadata)
 /// function.
 ///
-/// This renderer is compatible with **v0.4.0** of the [jot](https://hexdocs.pm/jot/jot.html)
+/// This renderer is compatible with **v1.0.0** of the [jot](https://hexdocs.pm/jot/jot.html)
 /// package.
 ///
 pub type Renderer(view) {
@@ -42,6 +42,7 @@ pub type Renderer(view) {
     strong: fn(List(view)) -> view,
     text: fn(String) -> view,
     code: fn(String) -> view,
+    image: fn(jot.Destination, String) -> view,
   )
 }
 
@@ -97,6 +98,13 @@ pub fn default_renderer() -> Renderer(Element(msg)) {
     strong: fn(content) { html.strong([], content) },
     text: fn(text) { element.text(text) },
     code: fn(content) { html.code([], [element.text(content)]) },
+    image: fn(destination, alt) {
+      case destination {
+        jot.Reference(ref) ->
+          html.img([attribute.src("#" <> linkify(ref)), attribute.alt(alt)])
+        jot.Url(url) -> html.img([attribute.src(url), attribute.alt(alt)])
+      }
+    },
   )
 }
 
@@ -257,6 +265,10 @@ fn render_inline(
     jot.Code(content) -> {
       renderer.code(content)
     }
+
+    jot.Image(alt, destination) -> {
+      renderer.image(destination, text_content(alt))
+    }
   }
 }
 
@@ -268,4 +280,17 @@ fn linkify(text: String) -> String {
   text
   |> regex.split(re, _)
   |> string.join("-")
+}
+
+fn text_content(segments: List(jot.Inline)) -> String {
+  use text, inline <- list.fold(segments, "")
+
+  case inline {
+    jot.Text(content) -> text <> content
+    jot.Link(content, _) -> text <> text_content(content)
+    jot.Emphasis(content) -> text <> text_content(content)
+    jot.Strong(content) -> text <> text_content(content)
+    jot.Code(content) -> text <> content
+    jot.Image(_, _) -> text
+  }
 }
