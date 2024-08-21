@@ -29,7 +29,7 @@ import tom.{type Toml}
 /// document. For that, take a look at the [`render_with_metadata`](#render_with_metadata)
 /// function.
 ///
-/// This renderer is compatible with **v1.0.0** of the [jot](https://hexdocs.pm/jot/jot.html)
+/// This renderer is compatible with **v1.0.1** of the [jot](https://hexdocs.pm/jot/jot.html)
 /// package.
 ///
 pub type Renderer(view) {
