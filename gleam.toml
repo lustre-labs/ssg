@@ -1,5 +1,5 @@
 name = "lustre_ssg"
-version = "0.8.0"
+version = "0.8.1"
 description = "A simple static site generator for Lustre projects."
 
 licences = ["MIT"]
