@@ -7,7 +7,6 @@ packages = [
   { name = "gleam_json", version = "1.0.1", build_tools = ["gleam"], requirements = ["gleam_stdlib", "thoas"], otp_app = "gleam_json", source = "hex", outer_checksum = "9063D14D25406326C0255BDA0021541E797D8A7A12573D849462CAFED459F6EB" },
   { name = "gleam_otp", version = "0.11.2", build_tools = ["gleam"], requirements = ["gleam_erlang", "gleam_stdlib"], otp_app = "gleam_otp", source = "hex", outer_checksum = "517FFB679E44AD71D059F3EF6A17BA6EFC8CB94FA174D52E22FB6768CF684D78" },
   { name = "gleam_stdlib", version = "0.40.0", build_tools = ["gleam"], requirements = [], otp_app = "gleam_stdlib", source = "hex", outer_checksum = "86606B75A600BBD05E539EB59FABC6E307EEEA7B1E5865AFB6D980A93BCB2181" },
-  { name = "gleeunit", version = "1.2.0", build_tools = ["gleam"], requirements = ["gleam_stdlib"], otp_app = "gleeunit", source = "hex", outer_checksum = "F7A7228925D3EE7D0813C922E062BFD6D7E9310F0BEE585D3A42F3307E3CFD13" },
   { name = "jot", version = "1.0.1", build_tools = ["gleam"], requirements = ["gleam_stdlib"], otp_app = "jot", source = "hex", outer_checksum = "A0A52BD8D079AB0ABF80BE11DC63B85CF5791125991A029FAD7D17820D9419D8" },
   { name = "lustre", version = "4.3.5", build_tools = ["gleam"], requirements = ["gleam_erlang", "gleam_json", "gleam_otp", "gleam_stdlib"], otp_app = "lustre", source = "hex", outer_checksum = "BED65BD6A23439FB155A5BE166ED3C6BC20DED844FA9BB21840860951BC8E153" },
   { name = "simplifile", version = "1.7.0", build_tools = ["gleam"], requirements = ["filepath", "gleam_stdlib"], otp_app = "simplifile", source = "hex", outer_checksum = "1D5DFA3A2F9319EC85825F6ED88B8E449F381B0D55A62F5E61424E748E7DDEB0" },
@@ -17,7 +16,6 @@ packages = [
 
 [requirements]
 gleam_stdlib = { version = ">= 0.34.0" }
-gleeunit = { version = "~> 1.0" }
 jot = { version = "1.0.1" }
 lustre = { version = ">= 4.3.5 and < 5.0.0" }
 simplifile = { version = ">= 1.7.0 and < 2.0.0" }
