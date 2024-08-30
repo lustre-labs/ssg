@@ -15,6 +15,7 @@ gleam_stdlib = ">= 0.34.0"
 jot = "1.0.1"
 lustre = ">= 4.3.5 and < 5.0.0"
 simplifile = ">= 2.0.1 and < 3.0.0"
+temporary = ">= 1.0.0 and < 2.0.0"
 tom = ">= 1.0.0 and < 2.0.0"
 
 [dev-dependencies]
