@@ -1,5 +1,5 @@
 name = "lustre_ssg"
-version = "0.8.1"
+version = "0.8.2"
 description = "A simple static site generator for Lustre projects."
 
 licences = ["MIT"]
@@ -14,7 +14,7 @@ gleam = ">= 0.33.0"
 gleam_stdlib = ">= 0.34.0"
 jot = "1.0.1"
 lustre = ">= 4.3.5 and < 5.0.0"
-simplifile = ">= 1.7.0 and < 2.0.0"
+simplifile = ">= 2.0.1 and < 3.0.0"
 tom = ">= 1.0.0 and < 2.0.0"
 
 [dev-dependencies]
