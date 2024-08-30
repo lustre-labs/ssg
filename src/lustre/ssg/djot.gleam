@@ -29,7 +29,7 @@ import tom.{type Toml}
 /// document. For that, take a look at the [`render_with_metadata`](#render_with_metadata)
 /// function.
 ///
-/// This renderer is compatible with **v1.0.0** of the [jot](https://hexdocs.pm/jot/jot.html)
+/// This renderer is compatible with **v1.0.1** of the [jot](https://hexdocs.pm/jot/jot.html)
 /// package.
 ///
 pub type Renderer(view) {
@@ -43,6 +43,7 @@ pub type Renderer(view) {
     text: fn(String) -> view,
     code: fn(String) -> view,
     image: fn(jot.Destination, String) -> view,
+    linebreak: fn() -> view,
   )
 }
 
@@ -105,6 +106,7 @@ pub fn default_renderer() -> Renderer(Element(msg)) {
         jot.Url(url) -> html.img([attribute.src(url), attribute.alt(alt)])
       }
     },
+    linebreak: fn() { html.br([]) },
   )
 }
 
@@ -269,6 +271,10 @@ fn render_inline(
     jot.Image(alt, destination) -> {
       renderer.image(destination, text_content(alt))
     }
+
+    jot.Linebreak -> {
+      renderer.linebreak()
+    }
   }
 }
 
@@ -292,5 +298,6 @@ fn text_content(segments: List(jot.Inline)) -> String {
     jot.Strong(content) -> text <> text_content(content)
     jot.Code(content) -> text <> content
     jot.Image(_, _) -> text
+    jot.Linebreak -> text
   }
 }
