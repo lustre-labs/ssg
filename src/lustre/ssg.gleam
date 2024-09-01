@@ -1,5 +1,6 @@
 // IMPORTS ---------------------------------------------------------------------
 
+import filepath
 import gleam/dict.{type Dict}
 import gleam/list
 import gleam/option.{type Option, None, Some}
@@ -69,7 +70,11 @@ fn do_build(
 
   use _ <- result.try({
     use #(path, content) <- list.try_map(dict.to_list(static_assets))
-    simplifile.write(temp <> path, content)
+    let dir = filepath.directory_name(path)
+
+    filepath.join(temp, dir)
+    |> simplifile.create_directory_all
+    |> result.then(fn(_) { simplifile.write(temp <> path, content) })
     |> result.map_error(CannotWriteStaticAsset(_, path))
   })
 
