@@ -19,6 +19,7 @@ packages = [
 ]
 
 [requirements]
+filepath = { version = ">= 1.0.0 and < 2.0.0" }
 gleam_stdlib = { version = ">= 0.34.0" }
 jot = { version = "1.0.1" }
 lustre = { version = ">= 4.3.5 and < 5.0.0" }
