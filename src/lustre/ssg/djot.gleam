@@ -4,7 +4,7 @@ import gleam/bool
 import gleam/dict.{type Dict}
 import gleam/list
 import gleam/option.{type Option}
-import gleam/regex.{Match}
+import gleam/regexp.{Match}
 import gleam/result
 import gleam/string
 import jot.{Document}
@@ -131,10 +131,10 @@ pub fn default_renderer() -> Renderer(Element(msg)) {
 ///
 pub fn frontmatter(document: String) -> Result(String, Nil) {
   use <- bool.guard(!string.starts_with(document, "---"), Error(Nil))
-  let options = regex.Options(case_insensitive: False, multi_line: True)
-  let assert Ok(re) = regex.compile("^---\\n[\\s\\S]*?\\n---", options)
+  let options = regexp.Options(case_insensitive: False, multi_line: True)
+  let assert Ok(re) = regexp.compile("^---\\n[\\s\\S]*?\\n---", options)
 
-  case regex.scan(re, document) {
+  case regexp.scan(re, document) {
     [Match(content: frontmatter, ..), ..] ->
       Ok(
         frontmatter
@@ -281,10 +281,10 @@ fn render_inline(
 // UTILS -----------------------------------------------------------------------
 
 fn linkify(text: String) -> String {
-  let assert Ok(re) = regex.from_string(" +")
+  let assert Ok(re) = regexp.from_string(" +")
 
   text
-  |> regex.split(re, _)
+  |> regexp.split(re, _)
   |> string.join("-")
 }
 
