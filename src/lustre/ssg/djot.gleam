@@ -4,7 +4,7 @@ import gleam/bool
 import gleam/dict.{type Dict}
 import gleam/list
 import gleam/option.{type Option}
-import gleam/regex.{Match}
+import gleam/regexp.{Match}
 import gleam/result
 import gleam/string
 import jot.{Document}
@@ -29,7 +29,7 @@ import tom.{type Toml}
 /// document. For that, take a look at the [`render_with_metadata`](#render_with_metadata)
 /// function.
 ///
-/// This renderer is compatible with **v1.0.1** of the [jot](https://hexdocs.pm/jot/jot.html)
+/// This renderer is compatible with **v1.1.0** of the [jot](https://hexdocs.pm/jot/jot.html)
 /// package.
 ///
 pub type Renderer(view) {
@@ -43,7 +43,8 @@ pub type Renderer(view) {
     text: fn(String) -> view,
     code: fn(String) -> view,
     image: fn(jot.Destination, String) -> view,
-    linebreak: fn() -> view,
+    linebreak: view,
+    thematicbreak: view,
   )
 }
 
@@ -106,7 +107,8 @@ pub fn default_renderer() -> Renderer(Element(msg)) {
         jot.Url(url) -> html.img([attribute.src(url), attribute.alt(alt)])
       }
     },
-    linebreak: fn() { html.br([]) },
+    linebreak: html.br([]),
+    thematicbreak: html.hr([]),
   )
 }
 
@@ -131,15 +133,15 @@ pub fn default_renderer() -> Renderer(Element(msg)) {
 ///
 pub fn frontmatter(document: String) -> Result(String, Nil) {
   use <- bool.guard(!string.starts_with(document, "---"), Error(Nil))
-  let options = regex.Options(case_insensitive: False, multi_line: True)
-  let assert Ok(re) = regex.compile("^---\\n[\\s\\S]*?\\n---", options)
+  let options = regexp.Options(case_insensitive: False, multi_line: True)
+  let assert Ok(re) = regexp.compile("^---\\n[\\s\\S]*?\\n---", options)
 
-  case regex.scan(re, document) {
+  case regexp.scan(re, document) {
     [Match(content: frontmatter, ..), ..] ->
       Ok(
         frontmatter
-        |> string.drop_left(4)
-        |> string.drop_right(4),
+        |> string.drop_start(4)
+        |> string.drop_end(4),
       )
     _ -> Error(Nil)
   }
@@ -233,6 +235,10 @@ fn render_block(
     jot.Codeblock(attrs, language, code) -> {
       renderer.codeblock(attrs, language, code)
     }
+
+    jot.ThematicBreak -> {
+      renderer.thematicbreak
+    }
   }
 }
 
@@ -273,7 +279,7 @@ fn render_inline(
     }
 
     jot.Linebreak -> {
-      renderer.linebreak()
+      renderer.linebreak
     }
   }
 }
@@ -281,10 +287,10 @@ fn render_inline(
 // UTILS -----------------------------------------------------------------------
 
 fn linkify(text: String) -> String {
-  let assert Ok(re) = regex.from_string(" +")
+  let assert Ok(re) = regexp.from_string(" +")
 
   text
-  |> regex.split(re, _)
+  |> regexp.split(re, _)
   |> string.join("-")
 }
 
