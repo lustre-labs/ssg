@@ -4,7 +4,7 @@ import filepath
 import gleam/dict.{type Dict}
 import gleam/list
 import gleam/option.{type Option, None, Some}
-import gleam/regex
+import gleam/regexp
 import gleam/result
 import gleam/string
 import lustre/element.{type Element}
@@ -456,24 +456,24 @@ pub fn use_index_routes(
 // UTILS -----------------------------------------------------------------------
 
 fn routify(path: String) -> String {
-  let assert Ok(whitespace) = regex.from_string("\\s+")
+  let assert Ok(whitespace) = regexp.from_string("\\s+")
 
-  regex.split(whitespace, path)
+  regexp.split(whitespace, path)
   |> string.join("-")
   |> string.lowercase
 }
 
 fn trim_slash(path: String) -> String {
   case string.ends_with(path, "/") {
-    True -> string.drop_right(path, 1)
+    True -> string.drop_end(path, 1)
     False -> path
   }
 }
 
 fn last_segment(path: String) -> #(String, String) {
-  let assert Ok(segments) = regex.from_string("(.*/)+?(.+)")
-  let assert [regex.Match(content: _, submatches: [Some(leading), Some(last)])] =
-    regex.scan(segments, path)
+  let assert Ok(segments) = regexp.from_string("(.*/)+?(.+)")
+  let assert [regexp.Match(content: _, submatches: [Some(leading), Some(last)])] =
+    regexp.scan(segments, path)
 
   #(leading, last)
 }
