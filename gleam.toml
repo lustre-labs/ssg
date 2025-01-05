@@ -11,13 +11,13 @@ links = [
 gleam = ">= 0.33.0"
 
 [dependencies]
+filepath = ">= 1.0.0 and < 2.0.0"
+gleam_regexp = ">= 1.0.0 and < 2.0.0"
 gleam_stdlib = ">= 0.34.0"
-jot = "1.0.1"
+jot = "1.1.0"
 lustre = ">= 4.3.5 and < 5.0.0"
 simplifile = ">= 2.0.1 and < 3.0.0"
 temporary = ">= 1.0.0 and < 2.0.0"
 tom = ">= 1.0.0 and < 2.0.0"
-filepath = ">= 1.0.0 and < 2.0.0"
-commonmark = ">= 0.1.8 and < 1.0.0"
 
 [dev-dependencies]
