@@ -34,7 +34,6 @@ $ gleam add lustre_ssg --dev
 
 ```gleam
 import gleam/list
-import gleam/map
 import gleam/io
 
 // Some data for your site
@@ -49,10 +48,9 @@ import app/page/post
 import lustre/ssg
 
 pub fn main() {
-  let posts = map.from_list({
-    use post <- list.map(posts.all())
-    #(post.id, post)
-  })
+  let posts =
+    list.map(posts.all(), fn(post) { #(post.id, post) })
+    |> dict.from_list()
 
   let build = ssg.new("./priv")
     |> ssg.add_static_route("/", index.view())
