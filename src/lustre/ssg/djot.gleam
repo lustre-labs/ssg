@@ -29,8 +29,9 @@ import tom.{type Toml}
 /// document. For that, take a look at the [`render_with_metadata`](#render_with_metadata)
 /// function.
 ///
-/// This renderer is compatible with **v1.1.0** of the [jot](https://hexdocs.pm/jot/jot.html)
-/// package.
+/// This renderer is compatible with **v2.0.1** of the [jot](https://hexdocs.pm/jot/jot.html)
+/// package without support for footnotes. If you'd like to add support for footnotes,
+/// pull requests are welcome!
 ///
 pub type Renderer(view) {
   Renderer(
@@ -64,7 +65,7 @@ pub fn default_renderer() -> Renderer(Element(msg)) {
     codeblock: fn(attrs, lang, code) {
       let lang = option.unwrap(lang, "text")
       html.pre(to_attributes(attrs), [
-        html.code([attribute("data-lang", lang)], [element.text(code)]),
+        html.code([attribute("data-lang", lang)], [html.text(code)]),
       ])
     },
     emphasis: fn(content) { html.em([], content) },
@@ -98,8 +99,8 @@ pub fn default_renderer() -> Renderer(Element(msg)) {
     },
     paragraph: fn(attrs, content) { html.p(to_attributes(attrs), content) },
     strong: fn(content) { html.strong([], content) },
-    text: fn(text) { element.text(text) },
-    code: fn(content) { html.code([], [element.text(content)]) },
+    text: fn(text) { html.text(text) },
+    code: fn(content) { html.code([], [html.text(content)]) },
     image: fn(destination, alt) {
       case destination {
         jot.Reference(ref) ->
@@ -179,7 +180,7 @@ pub fn content(document: String) -> String {
 ///
 pub fn render(document: String, renderer: Renderer(view)) -> List(view) {
   let content = content(document)
-  let Document(content, references) = jot.parse(content)
+  let Document(content:, references:, footnotes: _) = jot.parse(content)
 
   content
   |> list.map(render_block(_, references, renderer))
@@ -204,7 +205,7 @@ pub fn render_with_metadata(
 
   let content = content(document)
   let renderer = renderer(metadata)
-  let Document(content, references) = jot.parse(content)
+  let Document(content:, references:, footnotes: _) = jot.parse(content)
 
   content
   |> list.map(render_block(_, references, renderer))
@@ -252,7 +253,7 @@ fn render_inline(
       renderer.text(text)
     }
 
-    jot.Link(content, destination) -> {
+    jot.Link(content:, destination:) -> {
       renderer.link(
         destination,
         references,
@@ -260,27 +261,29 @@ fn render_inline(
       )
     }
 
-    jot.Emphasis(content) -> {
+    jot.Emphasis(content:) -> {
       renderer.emphasis(
         list.map(content, render_inline(_, references, renderer)),
       )
     }
 
-    jot.Strong(content) -> {
+    jot.Strong(content:) -> {
       renderer.strong(list.map(content, render_inline(_, references, renderer)))
     }
 
-    jot.Code(content) -> {
+    jot.Code(content:) -> {
       renderer.code(content)
     }
 
-    jot.Image(alt, destination) -> {
-      renderer.image(destination, text_content(alt))
+    jot.Image(content:, destination:) -> {
+      renderer.image(destination, text_content(content))
     }
 
     jot.Linebreak -> {
       renderer.linebreak
     }
+
+    jot.Footnote(_) -> renderer.text("")
   }
 }
 
@@ -305,5 +308,6 @@ fn text_content(segments: List(jot.Inline)) -> String {
     jot.Code(content) -> text <> content
     jot.Image(_, _) -> text
     jot.Linebreak -> text
+    jot.Footnote(_) -> text
   }
 }
