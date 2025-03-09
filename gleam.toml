@@ -1,6 +1,7 @@
 name = "lustre_ssg"
 version = "0.9.0"
 description = "A simple static site generator for Lustre projects."
+gleam = ">= 1.4.0"
 
 licences = ["MIT"]
 repository = { type = "github", user = "lustre-labs", repo = "ssg" }
@@ -8,13 +9,12 @@ links = [
     { title = "Website", href = "https://lustre.build" },
     { title = "Sponsor", href = "https://github.com/sponsors/hayleigh-dot-dev" },
 ]
-gleam = ">= 0.33.0"
 
 [dependencies]
 filepath = ">= 1.0.0 and < 2.0.0"
 gleam_regexp = ">= 1.0.0 and < 2.0.0"
 gleam_stdlib = ">= 0.34.0"
-jot = "1.1.0"
+jot = "2.0.1"
 lustre = ">= 4.3.5 and < 5.0.0"
 simplifile = ">= 2.0.1 and < 3.0.0"
 temporary = ">= 1.0.0 and < 2.0.0"
