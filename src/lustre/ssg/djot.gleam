@@ -40,6 +40,8 @@ pub type Renderer(view) {
     heading: fn(Dict(String, String), Int, List(view)) -> view,
     link: fn(jot.Destination, Dict(String, String), List(view)) -> view,
     paragraph: fn(Dict(String, String), List(view)) -> view,
+    bullet_list: fn(jot.ListLayout, String, List(List(view))) -> view,
+    raw_html: fn(String) -> view,
     strong: fn(List(view)) -> view,
     text: fn(String) -> view,
     code: fn(String) -> view,
@@ -98,6 +100,24 @@ pub fn default_renderer() -> Renderer(Element(msg)) {
       }
     },
     paragraph: fn(attrs, content) { html.p(to_attributes(attrs), content) },
+    bullet_list: fn(layout, style, items) {
+      let list_style_type =
+        attribute.style("list-style-type", case style {
+          "-" -> "'-'"
+          "*" -> "disc"
+          _ -> "circle"
+        })
+
+      html.ul([list_style_type], {
+        list.map(items, fn(item) {
+          case layout {
+            jot.Tight -> html.li([], item)
+            jot.Loose -> html.li([], [html.p([], item)])
+          }
+        })
+      })
+    },
+    raw_html: fn(content) { element.unsafe_raw_html("", "div", [], content) },
     strong: fn(content) { html.strong([], content) },
     text: fn(text) { html.text(text) },
     code: fn(content) { html.code([], [html.text(content)]) },
@@ -240,6 +260,18 @@ fn render_block(
     jot.ThematicBreak -> {
       renderer.thematicbreak
     }
+
+    jot.RawBlock(content) -> {
+      renderer.raw_html(content)
+    }
+
+    jot.BulletList(layout, style, items) -> {
+      renderer.bullet_list(
+        layout,
+        style,
+        list.map(items, list.map(_, render_block(_, references, renderer))),
+      )
+    }
   }
 }
 
@@ -251,6 +283,10 @@ fn render_inline(
   case inline {
     jot.Text(text) -> {
       renderer.text(text)
+    }
+
+    jot.NonBreakingSpace -> {
+      renderer.text(" ")
     }
 
     jot.Link(content:, destination:) -> {
@@ -302,6 +338,7 @@ fn text_content(segments: List(jot.Inline)) -> String {
 
   case inline {
     jot.Text(content) -> text <> content
+    jot.NonBreakingSpace -> text <> " "
     jot.Link(content, _) -> text <> text_content(content)
     jot.Emphasis(content) -> text <> text_content(content)
     jot.Strong(content) -> text <> text_content(content)
