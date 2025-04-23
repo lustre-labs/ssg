@@ -149,15 +149,14 @@ fn do_build(
   // If a previous build has already happened, we want to delete it and also
   // make sure we catch any simplifile errors. But attempting to delete a directory
   // that doesn't exist will throw an error so instead we do nothing.
-  use _ <- result.try(case
-    simplifile.is_directory(out_dir)
-    |> result.unwrap(False)
-  {
-    True ->
-      simplifile.delete(out_dir)
-      |> result.map_error(CannotWriteToOutputDir)
-    False -> Ok(Nil)
-  })
+  use _ <- result.try(
+    case result.unwrap(simplifile.is_directory(out_dir), False) {
+      True ->
+        simplifile.delete(out_dir)
+        |> result.map_error(CannotWriteToOutputDir)
+      False -> Ok(Nil)
+    },
+  )
   use _ <- result.try(
     simplifile.copy_directory(temp, out_dir)
     |> result.map_error(CannotWriteToOutputDir),
