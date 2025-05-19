@@ -48,6 +48,8 @@ pub type Renderer(view) {
     image: fn(jot.Destination, String) -> view,
     linebreak: view,
     thematicbreak: view,
+    inline_math: fn(String) -> view,
+    display_math: fn(String) -> view,
   )
 }
 
@@ -130,6 +132,16 @@ pub fn default_renderer() -> Renderer(Element(msg)) {
     },
     linebreak: html.br([]),
     thematicbreak: html.hr([]),
+    inline_math: fn(math) {
+      html.span([attribute.class("math inline")], [
+        html.text("\\(" <> math <> "\\)"),
+      ])
+    },
+    display_math: fn(math) {
+      html.span([attribute.class("math display")], [
+        html.text("\\[" <> math <> "\\]"),
+      ])
+    },
   )
 }
 
@@ -320,6 +332,14 @@ fn render_inline(
     }
 
     jot.Footnote(_) -> renderer.text("")
+
+    jot.MathDisplay(content:) -> {
+      renderer.display_math(content)
+    }
+
+    jot.MathInline(content:) -> {
+      renderer.inline_math(content)
+    }
   }
 }
 
@@ -346,5 +366,7 @@ fn text_content(segments: List(jot.Inline)) -> String {
     jot.Image(_, _) -> text
     jot.Linebreak -> text
     jot.Footnote(_) -> text
+    jot.MathDisplay(_) -> text
+    jot.MathInline(_) -> text
   }
 }
