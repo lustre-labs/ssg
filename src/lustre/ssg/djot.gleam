@@ -29,9 +29,9 @@ import tom.{type Toml}
 /// document. For that, take a look at the [`render_with_metadata`](#render_with_metadata)
 /// function.
 ///
-/// This renderer is compatible with **v2.0.1** of the [jot](https://hexdocs.pm/jot/jot.html)
-/// package without support for footnotes. If you'd like to add support for footnotes,
-/// pull requests are welcome!
+/// This renderer is compatible with **v5.0.0** of the [jot](https://hexdocs.pm/jot/jot.html)
+/// package **without** support for footnotes. If you'd like to add support for
+/// footnotes, pull requests are welcome!
 ///
 pub type Renderer(view) {
   Renderer(
@@ -58,6 +58,11 @@ pub type Renderer(view) {
 /// The default renderer generates some sensible Lustre elements from a djot
 /// document. You can use this if you need a quick drop-in renderer for some
 /// markup in a Lustre project.
+///
+/// > **Note**: this does not implement a rich renderer for maths expressions.
+/// > Instead, this takes the same approach as djot's own syntax reference and
+/// > renders a `<span>` that can be understood by external libraries like
+/// > MathJax or KaTeX.
 ///
 pub fn default_renderer() -> Renderer(Element(msg)) {
   let to_attributes = fn(attrs) {
