@@ -28,4 +28,4 @@ jot = { version = ">= 5.0.0 and < 6.0.0" }
 lustre = { version = ">= 5.0.0 and < 6.0.0" }
 simplifile = { version = ">= 2.0.1 and < 3.0.0" }
 temporary = { version = ">= 1.0.0 and < 2.0.0" }
-tom = { version = ">= 1.0.0 and < 2.0.0" }
+tom = { version = ">= 1.0.0 and < 3.0.0" }
