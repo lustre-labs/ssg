@@ -74,7 +74,7 @@ fn do_build(
 
     filepath.join(temp, dir)
     |> simplifile.create_directory_all
-    |> result.then(fn(_) { simplifile.write(temp <> path, content) })
+    |> result.try(fn(_) { simplifile.write(temp <> path, content) })
     |> result.map_error(CannotWriteStaticAsset(_, path))
   })
 
