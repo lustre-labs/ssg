@@ -61,7 +61,7 @@ pub fn main() {
   case build {
     Ok(_) -> io.println("Build succeeded!")
     Error(e) -> {
-      io.debug(e)
+      echo e
       io.println("Build failed!")
     }
   }
