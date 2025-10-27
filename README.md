@@ -22,10 +22,10 @@ hydration. If you need those things, you will have to build them yourself!
 
 ## Usage
 
-1. Add `lustre_ssg` as a development dependency to your Gleam project:
+1. Add `lustre_ssg` as a dependency to your Gleam project:
 
 ```sh
-$ gleam add lustre_ssg --dev
+$ gleam add lustre_ssg
 ```
 
 2. Create a `build.gleam` file in your project's `src` directory.
