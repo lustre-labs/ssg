@@ -28,7 +28,7 @@ hydration. If you need those things, you will have to build them yourself!
 $ gleam add lustre_ssg --dev
 ```
 
-2. Create a `build.gleam` file in your project's `src` directory.
+2. Create a `build.gleam` file in your project's `dev` directory.
 
 3. Import `lustre/ssg` and configure your routes:
 
