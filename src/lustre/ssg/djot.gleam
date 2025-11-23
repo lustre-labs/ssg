@@ -50,6 +50,8 @@ pub type Renderer(view) {
     thematicbreak: view,
     inline_math: fn(String) -> view,
     display_math: fn(String) -> view,
+    blockquote: fn(Dict(String, String), List(view)) -> view,
+    div: fn(Dict(String, String), List(view)) -> view,
   )
 }
 
@@ -147,6 +149,10 @@ pub fn default_renderer() -> Renderer(Element(msg)) {
         html.text("\\[" <> math <> "\\]"),
       ])
     },
+    blockquote: fn(attrs, items) {
+      html.blockquote(to_attributes(attrs), items)
+    },
+    div: fn(attrs, items) { html.div(to_attributes(attrs), items) },
   )
 }
 
@@ -287,6 +293,20 @@ fn render_block(
         layout,
         style,
         list.map(items, list.map(_, render_block(_, references, renderer))),
+      )
+    }
+
+    jot.BlockQuote(attributes:, items:) -> {
+      renderer.blockquote(
+        attributes,
+        items |> list.map(render_block(_, references, renderer)),
+      )
+    }
+
+    jot.Div(attributes:, items:) -> {
+      renderer.div(
+        attributes,
+        items |> list.map(render_block(_, references, renderer)),
       )
     }
   }
