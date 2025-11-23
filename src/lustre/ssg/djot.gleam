@@ -38,19 +38,32 @@ pub type Renderer(view) {
     codeblock: fn(Dict(String, String), Option(String), String) -> view,
     emphasis: fn(List(view)) -> view,
     heading: fn(Dict(String, String), Int, List(view)) -> view,
-    link: fn(jot.Destination, Dict(String, String), List(view)) -> view,
+    link: fn(
+      jot.Destination,
+      Dict(String, String),
+      Dict(String, String),
+      List(view),
+    ) ->
+      view,
     paragraph: fn(Dict(String, String), List(view)) -> view,
     bullet_list: fn(jot.ListLayout, String, List(List(view))) -> view,
     raw_html: fn(String) -> view,
     strong: fn(List(view)) -> view,
     text: fn(String) -> view,
     code: fn(String) -> view,
-    image: fn(jot.Destination, String) -> view,
+    image: fn(
+      jot.Destination,
+      Dict(String, String),
+      Dict(String, String),
+      String,
+    ) ->
+      view,
     linebreak: view,
     thematicbreak: view,
     inline_math: fn(String) -> view,
     display_math: fn(String) -> view,
     blockquote: fn(Dict(String, String), List(view)) -> view,
+    span: fn(Dict(String, String), String) -> view,
     div: fn(Dict(String, String), List(view)) -> view,
   )
 }
@@ -91,7 +104,8 @@ pub fn default_renderer() -> Renderer(Element(msg)) {
         _ -> html.p(to_attributes(attrs), content)
       }
     },
-    link: fn(destination, references, content) {
+    link: fn(destination, references, attributes, content) {
+      let attributes = to_attributes(attributes)
       case destination {
         jot.Reference(ref) ->
           case dict.get(references, ref) {
@@ -101,11 +115,13 @@ pub fn default_renderer() -> Renderer(Element(msg)) {
                 [
                   attribute.href("#" <> linkify(ref)),
                   attribute.id(linkify("back-to-" <> ref)),
-                ],
+                ]
+                  |> list.append(attributes),
                 content,
               )
           }
-        jot.Url(url) -> html.a([attribute("href", url)], content)
+        jot.Url(url) ->
+          html.a([attribute("href", url)] |> list.append(attributes), content)
       }
     },
     paragraph: fn(attrs, content) { html.p(to_attributes(attrs), content) },
@@ -130,11 +146,22 @@ pub fn default_renderer() -> Renderer(Element(msg)) {
     strong: fn(content) { html.strong([], content) },
     text: fn(text) { html.text(text) },
     code: fn(content) { html.code([], [html.text(content)]) },
-    image: fn(destination, alt) {
+    image: fn(destination, references, attributes, alt) {
+      let attributes = to_attributes(attributes)
       case destination {
         jot.Reference(ref) ->
-          html.img([attribute.src("#" <> linkify(ref)), attribute.alt(alt)])
-        jot.Url(url) -> html.img([attribute.src(url), attribute.alt(alt)])
+          case dict.get(references, ref) {
+            Ok(url) ->
+              html.img(
+                [attribute.src(url), attribute.alt(alt)]
+                |> list.append(attributes),
+              )
+            Error(_) -> html.text(ref)
+          }
+        jot.Url(url) ->
+          html.img(
+            [attribute.src(url), attribute.alt(alt)] |> list.append(attributes),
+          )
       }
     },
     linebreak: html.br([]),
@@ -149,10 +176,13 @@ pub fn default_renderer() -> Renderer(Element(msg)) {
         html.text("\\[" <> math <> "\\]"),
       ])
     },
-    blockquote: fn(attrs, items) {
-      html.blockquote(to_attributes(attrs), items)
+    blockquote: fn(attrs, content) {
+      html.blockquote(to_attributes(attrs), content)
     },
-    div: fn(attrs, items) { html.div(to_attributes(attrs), items) },
+    span: fn(attrs, content) {
+      html.span(to_attributes(attrs), [html.text(content)])
+    },
+    div: fn(attrs, content) { html.div(to_attributes(attrs), content) },
   )
 }
 
@@ -223,7 +253,8 @@ pub fn content(document: String) -> String {
 ///
 pub fn render(document: String, renderer: Renderer(view)) -> List(view) {
   let content = content(document)
-  let Document(content:, references:, footnotes: _) = jot.parse(content)
+  let Document(content:, references:, reference_attributes: _, footnotes: _) =
+    jot.parse(content)
 
   content
   |> list.map(render_block(_, references, renderer))
@@ -248,7 +279,8 @@ pub fn render_with_metadata(
 
   let content = content(document)
   let renderer = renderer(metadata)
-  let Document(content:, references:, footnotes: _) = jot.parse(content)
+  let Document(content:, references:, reference_attributes: _, footnotes: _) =
+    jot.parse(content)
 
   content
   |> list.map(render_block(_, references, renderer))
@@ -295,18 +327,16 @@ fn render_block(
         list.map(items, list.map(_, render_block(_, references, renderer))),
       )
     }
-
     jot.BlockQuote(attributes:, items:) -> {
       renderer.blockquote(
         attributes,
-        items |> list.map(render_block(_, references, renderer)),
+        list.map(items, render_block(_, references, renderer)),
       )
     }
-
     jot.Div(attributes:, items:) -> {
       renderer.div(
         attributes,
-        items |> list.map(render_block(_, references, renderer)),
+        list.map(items, render_block(_, references, renderer)),
       )
     }
   }
@@ -326,11 +356,12 @@ fn render_inline(
       renderer.text(" ")
     }
 
-    jot.Link(content:, destination:) -> {
+    jot.Link(content:, destination:, attributes:) -> {
       renderer.link(
         destination,
         references,
-        list.map(content, render_inline(_, references, renderer)),
+        attributes,
+        list.map(content, render_inline(_, attributes, renderer)),
       )
     }
 
@@ -348,8 +379,8 @@ fn render_inline(
       renderer.code(content)
     }
 
-    jot.Image(content:, destination:) -> {
-      renderer.image(destination, text_content(content))
+    jot.Image(content:, destination:, attributes:) -> {
+      renderer.image(destination, references, attributes, text_content(content))
     }
 
     jot.Linebreak -> {
@@ -364,6 +395,9 @@ fn render_inline(
 
     jot.MathInline(content:) -> {
       renderer.inline_math(content)
+    }
+    jot.Span(attributes:, content:) -> {
+      renderer.span(attributes, text_content(content))
     }
   }
 }
@@ -384,14 +418,16 @@ fn text_content(segments: List(jot.Inline)) -> String {
   case inline {
     jot.Text(content) -> text <> content
     jot.NonBreakingSpace -> text <> " "
-    jot.Link(content, _) -> text <> text_content(content)
+    jot.Link(content: content, attributes: _, destination: _) ->
+      text <> text_content(content)
     jot.Emphasis(content) -> text <> text_content(content)
     jot.Strong(content) -> text <> text_content(content)
     jot.Code(content) -> text <> content
-    jot.Image(_, _) -> text
+    jot.Image(_, _, destination: _) -> text
     jot.Linebreak -> text
     jot.Footnote(_) -> text
     jot.MathDisplay(_) -> text
     jot.MathInline(_) -> text
+    jot.Span(attributes: _, content:) -> text <> text_content(content)
   }
 }
