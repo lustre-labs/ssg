@@ -41,6 +41,7 @@ pub type Renderer(view) {
     link: fn(
       jot.Destination,
       Dict(String, String),
+      Dict(String, Dict(String, String)),
       Dict(String, String),
       List(view),
     ) ->
@@ -54,6 +55,7 @@ pub type Renderer(view) {
     image: fn(
       jot.Destination,
       Dict(String, String),
+      Dict(String, Dict(String, String)),
       Dict(String, String),
       String,
     ) ->
@@ -104,24 +106,29 @@ pub fn default_renderer() -> Renderer(Element(msg)) {
         _ -> html.p(to_attributes(attrs), content)
       }
     },
-    link: fn(destination, references, attributes, content) {
+    link: fn(destination, references, reference_attributes, attributes, content) {
       let attributes = to_attributes(attributes)
       case destination {
-        jot.Reference(ref) ->
+        jot.Reference(ref) -> {
+          let attributes = case dict.get(reference_attributes, ref) {
+            Ok(attrs) -> list.append(attributes, to_attributes(attrs))
+            Error(_) -> attributes
+          }
+
           case dict.get(references, ref) {
-            Ok(url) -> html.a([attribute.href(url)], content)
+            Ok(url) -> html.a([attribute.href(url), ..attributes], content)
             Error(_) ->
               html.a(
                 [
                   attribute.href("#" <> linkify(ref)),
                   attribute.id(linkify("back-to-" <> ref)),
-                ]
-                  |> list.append(attributes),
+                  ..attributes
+                ],
                 content,
               )
           }
-        jot.Url(url) ->
-          html.a([attribute("href", url)] |> list.append(attributes), content)
+        }
+        jot.Url(url) -> html.a([attribute("href", url), ..attributes], content)
       }
     },
     paragraph: fn(attrs, content) { html.p(to_attributes(attrs), content) },
@@ -146,22 +153,22 @@ pub fn default_renderer() -> Renderer(Element(msg)) {
     strong: fn(content) { html.strong([], content) },
     text: fn(text) { html.text(text) },
     code: fn(content) { html.code([], [html.text(content)]) },
-    image: fn(destination, references, attributes, alt) {
+    image: fn(destination, references, reference_attributes, attributes, alt) {
       let attributes = to_attributes(attributes)
       case destination {
-        jot.Reference(ref) ->
+        jot.Reference(ref) -> {
+          let attributes = case dict.get(reference_attributes, ref) {
+            Ok(attrs) -> list.append(attributes, to_attributes(attrs))
+            Error(_) -> attributes
+          }
           case dict.get(references, ref) {
             Ok(url) ->
-              html.img(
-                [attribute.src(url), attribute.alt(alt)]
-                |> list.append(attributes),
-              )
+              html.img([attribute.src(url), attribute.alt(alt), ..attributes])
             Error(_) -> html.text(ref)
           }
+        }
         jot.Url(url) ->
-          html.img(
-            [attribute.src(url), attribute.alt(alt)] |> list.append(attributes),
-          )
+          html.img([attribute.src(url), attribute.alt(alt), ..attributes])
       }
     },
     linebreak: html.br([]),
@@ -253,11 +260,11 @@ pub fn content(document: String) -> String {
 ///
 pub fn render(document: String, renderer: Renderer(view)) -> List(view) {
   let content = content(document)
-  let Document(content:, references:, reference_attributes: _, footnotes: _) =
+  let Document(content:, references:, reference_attributes:, footnotes: _) =
     jot.parse(content)
 
   content
-  |> list.map(render_block(_, references, renderer))
+  |> list.map(render_block(_, references, reference_attributes, renderer))
 }
 
 /// Render a djot document using the given renderer. TOML metadata is extracted
@@ -279,24 +286,30 @@ pub fn render_with_metadata(
 
   let content = content(document)
   let renderer = renderer(metadata)
-  let Document(content:, references:, reference_attributes: _, footnotes: _) =
+  let Document(content:, references:, reference_attributes:, footnotes: _) =
     jot.parse(content)
 
   content
-  |> list.map(render_block(_, references, renderer))
+  |> list.map(render_block(_, references, reference_attributes, renderer))
   |> Ok
 }
 
 fn render_block(
   block: jot.Container,
   references: Dict(String, String),
+  reference_attributes: Dict(String, Dict(String, String)),
   renderer: Renderer(view),
 ) -> view {
   case block {
     jot.Paragraph(attrs, inline) -> {
       renderer.paragraph(
         attrs,
-        list.map(inline, render_inline(_, references, renderer)),
+        list.map(inline, render_inline(
+          _,
+          references,
+          reference_attributes,
+          renderer,
+        )),
       )
     }
 
@@ -304,7 +317,12 @@ fn render_block(
       renderer.heading(
         attrs,
         level,
-        list.map(inline, render_inline(_, references, renderer)),
+        list.map(inline, render_inline(
+          _,
+          references,
+          reference_attributes,
+          renderer,
+        )),
       )
     }
 
@@ -324,19 +342,37 @@ fn render_block(
       renderer.bullet_list(
         layout,
         style,
-        list.map(items, list.map(_, render_block(_, references, renderer))),
+        list.map(
+          items,
+          list.map(_, render_block(
+            _,
+            references,
+            reference_attributes,
+            renderer,
+          )),
+        ),
       )
     }
     jot.BlockQuote(attributes:, items:) -> {
       renderer.blockquote(
         attributes,
-        list.map(items, render_block(_, references, renderer)),
+        list.map(items, render_block(
+          _,
+          references,
+          reference_attributes,
+          renderer,
+        )),
       )
     }
     jot.Div(attributes:, items:) -> {
       renderer.div(
         attributes,
-        list.map(items, render_block(_, references, renderer)),
+        list.map(items, render_block(
+          _,
+          references,
+          reference_attributes,
+          renderer,
+        )),
       )
     }
   }
@@ -345,6 +381,7 @@ fn render_block(
 fn render_inline(
   inline: jot.Inline,
   references: Dict(String, String),
+  reference_attributes: Dict(String, Dict(String, String)),
   renderer: Renderer(view),
 ) -> view {
   case inline {
@@ -360,19 +397,37 @@ fn render_inline(
       renderer.link(
         destination,
         references,
+        reference_attributes,
         attributes,
-        list.map(content, render_inline(_, attributes, renderer)),
+        list.map(content, render_inline(
+          _,
+          references,
+          reference_attributes,
+          renderer,
+        )),
       )
     }
 
     jot.Emphasis(content:) -> {
       renderer.emphasis(
-        list.map(content, render_inline(_, references, renderer)),
+        list.map(content, render_inline(
+          _,
+          references,
+          reference_attributes,
+          renderer,
+        )),
       )
     }
 
     jot.Strong(content:) -> {
-      renderer.strong(list.map(content, render_inline(_, references, renderer)))
+      renderer.strong(
+        list.map(content, render_inline(
+          _,
+          references,
+          reference_attributes,
+          renderer,
+        )),
+      )
     }
 
     jot.Code(content:) -> {
@@ -380,7 +435,13 @@ fn render_inline(
     }
 
     jot.Image(content:, destination:, attributes:) -> {
-      renderer.image(destination, references, attributes, text_content(content))
+      renderer.image(
+        destination,
+        references,
+        reference_attributes,
+        attributes,
+        text_content(content),
+      )
     }
 
     jot.Linebreak -> {
