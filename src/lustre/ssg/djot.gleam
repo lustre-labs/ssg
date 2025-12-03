@@ -29,7 +29,7 @@ import tom.{type Toml}
 /// document. For that, take a look at the [`render_with_metadata`](#render_with_metadata)
 /// function.
 ///
-/// This renderer is compatible with **v5.0.0** of the [jot](https://hexdocs.pm/jot/jot.html)
+/// This renderer is compatible with **v8.0.0** of the [jot](https://hexdocs.pm/jot/jot.html)
 /// package **without** support for footnotes. If you'd like to add support for
 /// footnotes, pull requests are welcome!
 ///
@@ -38,28 +38,14 @@ pub type Renderer(view) {
     codeblock: fn(Dict(String, String), Option(String), String) -> view,
     emphasis: fn(List(view)) -> view,
     heading: fn(Dict(String, String), Int, List(view)) -> view,
-    link: fn(
-      jot.Destination,
-      Dict(String, String),
-      Dict(String, Dict(String, String)),
-      Dict(String, String),
-      List(view),
-    ) ->
-      view,
+    link: fn(Option(String), Dict(String, String), List(view)) -> view,
     paragraph: fn(Dict(String, String), List(view)) -> view,
     bullet_list: fn(jot.ListLayout, String, List(List(view))) -> view,
     raw_html: fn(String) -> view,
     strong: fn(List(view)) -> view,
     text: fn(String) -> view,
     code: fn(String) -> view,
-    image: fn(
-      jot.Destination,
-      Dict(String, String),
-      Dict(String, Dict(String, String)),
-      Dict(String, String),
-      String,
-    ) ->
-      view,
+    image: fn(Option(String), Dict(String, String), String) -> view,
     linebreak: view,
     thematicbreak: view,
     inline_math: fn(String) -> view,
@@ -106,29 +92,12 @@ pub fn default_renderer() -> Renderer(Element(msg)) {
         _ -> html.p(to_attributes(attrs), content)
       }
     },
-    link: fn(destination, references, reference_attributes, attributes, content) {
+    link: fn(destination, attributes, content) {
       let attributes = to_attributes(attributes)
-      case destination {
-        jot.Reference(ref) -> {
-          let attributes = case dict.get(reference_attributes, ref) {
-            Ok(attrs) -> list.append(attributes, to_attributes(attrs))
-            Error(_) -> attributes
-          }
 
-          case dict.get(references, ref) {
-            Ok(url) -> html.a([attribute.href(url), ..attributes], content)
-            Error(_) ->
-              html.a(
-                [
-                  attribute.href("#" <> linkify(ref)),
-                  attribute.id(linkify("back-to-" <> ref)),
-                  ..attributes
-                ],
-                content,
-              )
-          }
-        }
-        jot.Url(url) -> html.a([attribute("href", url), ..attributes], content)
+      case destination {
+        option.None -> html.span(attributes, content)
+        option.Some(url) -> html.a([attribute.href(url), ..attributes], content)
       }
     },
     paragraph: fn(attrs, content) { html.p(to_attributes(attrs), content) },
@@ -153,22 +122,12 @@ pub fn default_renderer() -> Renderer(Element(msg)) {
     strong: fn(content) { html.strong([], content) },
     text: fn(text) { html.text(text) },
     code: fn(content) { html.code([], [html.text(content)]) },
-    image: fn(destination, references, reference_attributes, attributes, alt) {
+    image: fn(destination, attributes, alt) {
       let attributes = to_attributes(attributes)
       case destination {
-        jot.Reference(ref) -> {
-          let attributes = case dict.get(reference_attributes, ref) {
-            Ok(attrs) -> list.append(attributes, to_attributes(attrs))
-            Error(_) -> attributes
-          }
-          case dict.get(references, ref) {
-            Ok(url) ->
-              html.img([attribute.src(url), attribute.alt(alt), ..attributes])
-            Error(_) -> html.text(ref)
-          }
-        }
-        jot.Url(url) ->
-          html.img([attribute.src(url), attribute.alt(alt), ..attributes])
+        option.None -> html.span(attributes, [html.text(alt)])
+        option.Some(url) ->
+          html.img([attribute.href(url), attribute.alt(alt), ..attributes])
       }
     },
     linebreak: html.br([]),
@@ -394,10 +353,12 @@ fn render_inline(
     }
 
     jot.Link(content:, destination:, attributes:) -> {
+      let #(url, additional_attributes) =
+        resolve_references(destination, references, reference_attributes)
+      let attributes = dict.merge(attributes, additional_attributes)
+
       renderer.link(
-        destination,
-        references,
-        reference_attributes,
+        url,
         attributes,
         list.map(content, render_inline(
           _,
@@ -435,15 +396,12 @@ fn render_inline(
     }
 
     jot.Image(content:, destination:, attributes:) -> {
-      renderer.image(
-        destination,
-        references,
-        reference_attributes,
-        attributes,
-        text_content(content),
-      )
-    }
+      let #(url, additional_attributes) =
+        resolve_references(destination, references, reference_attributes)
+      let attributes = dict.merge(attributes, additional_attributes)
 
+      renderer.image(url, attributes, text_content(content))
+    }
     jot.Linebreak -> {
       renderer.linebreak
     }
@@ -465,12 +423,25 @@ fn render_inline(
 
 // UTILS -----------------------------------------------------------------------
 
-fn linkify(text: String) -> String {
-  let assert Ok(re) = regexp.from_string(" +")
+fn resolve_references(
+  destination: jot.Destination,
+  references: Dict(String, String),
+  reference_attributes: Dict(String, Dict(String, String)),
+) -> #(Option(String), Dict(String, String)) {
+  case destination {
+    jot.Reference(ref) -> {
+      let attributes = case dict.get(reference_attributes, ref) {
+        Ok(attrs) -> attrs
+        Error(_) -> dict.new()
+      }
 
-  text
-  |> regexp.split(re, _)
-  |> string.join("-")
+      case dict.get(references, ref) {
+        Ok(url) -> #(option.Some(url), attributes)
+        Error(_) -> #(option.None, attributes)
+      }
+    }
+    jot.Url(url) -> #(option.Some(url), dict.new())
+  }
 }
 
 fn text_content(segments: List(jot.Inline)) -> String {
@@ -484,7 +455,7 @@ fn text_content(segments: List(jot.Inline)) -> String {
     jot.Emphasis(content) -> text <> text_content(content)
     jot.Strong(content) -> text <> text_content(content)
     jot.Code(content) -> text <> content
-    jot.Image(_, _, destination: _) -> text
+    jot.Image(_, _, _) -> text
     jot.Linebreak -> text
     jot.Footnote(_) -> text
     jot.MathDisplay(_) -> text
