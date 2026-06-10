@@ -2,6 +2,7 @@
 
 import gleam/bool
 import gleam/dict.{type Dict}
+import gleam/int
 import gleam/list
 import gleam/option.{type Option}
 import gleam/regexp.{Match}
@@ -40,7 +41,14 @@ pub type Renderer(view) {
     heading: fn(Dict(String, String), Int, List(view)) -> view,
     link: fn(Option(String), Dict(String, String), List(view)) -> view,
     paragraph: fn(Dict(String, String), List(view)) -> view,
-    bullet_list: fn(jot.ListLayout, String, List(List(view))) -> view,
+    bullet_list: fn(jot.ListLayout, jot.BulletStyle, List(List(view))) -> view,
+    ordered_list: fn(
+      jot.ListLayout,
+      jot.OrdinalPunctuation,
+      jot.OrdinalStyle,
+      Int,
+      List(List(view)),
+    ) -> view,
     raw_html: fn(String) -> view,
     strong: fn(List(view)) -> view,
     text: fn(String) -> view,
@@ -52,7 +60,13 @@ pub type Renderer(view) {
     display_math: fn(String) -> view,
     blockquote: fn(Dict(String, String), List(view)) -> view,
     span: fn(Dict(String, String), String) -> view,
-    div: fn(Dict(String, String), List(view)) -> view,
+    div: fn(Dict(String, String), Option(String), List(view)) -> view,
+    insert: fn(String) -> view,
+    delete: fn(String) -> view,
+    mark: fn(String) -> view,
+    symbol: fn(String) -> view,
+    subscript: fn(List(view)) -> view,
+    superscript: fn(List(view)) -> view,
   )
 }
 
@@ -104,9 +118,9 @@ pub fn default_renderer() -> Renderer(Element(msg)) {
     bullet_list: fn(layout, style, items) {
       let list_style_type =
         attribute.style("list-style-type", case style {
-          "-" -> "'-'"
-          "*" -> "disc"
-          _ -> "circle"
+          jot.BulletDash -> "''"
+          jot.BulletStar -> "disc"
+          jot.BulletPlus -> "circle"
         })
 
       html.ul([list_style_type], {
@@ -117,6 +131,36 @@ pub fn default_renderer() -> Renderer(Element(msg)) {
           }
         })
       })
+    },
+    ordered_list: fn(layout, punctuation, ordinal, start, items) {
+      let list_style_type =
+        attribute.style("list-style-type", case ordinal {
+          jot.NumericOrdinal -> "decimal"
+          jot.LowerAlphaOrdinal -> "lower-alpha"
+          jot.UpperAlphaOrdinal -> "upper-alpha"
+        })
+
+      let punctuation_type = case punctuation {
+        jot.FullStop -> "full-stop"
+        jot.SingleParen -> "single-paren"
+        jot.DoubleParen -> "double-paren"
+      }
+
+      html.ol(
+        [
+          attribute.attribute("start", int.to_string(start)),
+          attribute.data("punctuation", punctuation_type),
+          list_style_type,
+        ],
+        {
+          list.map(items, fn(item) {
+            case layout {
+              jot.Tight -> html.li([], item)
+              jot.Loose -> html.li([], [html.p([], item)])
+            }
+          })
+        },
+      )
     },
     raw_html: fn(content) { element.unsafe_raw_html("", "div", [], content) },
     strong: fn(content) { html.strong([], content) },
@@ -148,7 +192,21 @@ pub fn default_renderer() -> Renderer(Element(msg)) {
     span: fn(attrs, content) {
       html.span(to_attributes(attrs), [html.text(content)])
     },
-    div: fn(attrs, content) { html.div(to_attributes(attrs), content) },
+    div: fn(attrs, class, content) {
+      let attributes = case class {
+        option.Some(class) -> [attribute.class(class), ..to_attributes(attrs)]
+        option.None -> to_attributes(attrs)
+      }
+      html.div(attributes, content)
+    },
+    insert: fn(content) { html.ins([], [html.text(content)]) },
+    delete: fn(content) { html.del([], [html.text(content)]) },
+    mark: fn(content) { html.mark([], [html.text(content)]) },
+    symbol: fn(content) {
+      html.span([attribute.class("symbol")], [html.text(content)])
+    },
+    subscript: fn(content) { html.sub([], content) },
+    superscript: fn(content) { html.sup([], content) },
   )
 }
 
@@ -193,7 +251,9 @@ pub fn frontmatter(document: String) -> Result(String, Nil) {
 ///
 /// If the frontmatter is invalid TOML, this function returns a TOML parse error.
 ///
-pub fn metadata(document: String) -> Result(Dict(String, Toml), tom.ParseError) {
+pub fn metadata(
+  document: String,
+) -> Result(Dict(String, Toml), tom.ParseError) {
   case frontmatter(document) {
     Ok(frontmatter) -> tom.parse(frontmatter)
     Error(_) -> Ok(dict.new())
@@ -312,6 +372,23 @@ fn render_block(
         ),
       )
     }
+    jot.OrderedList(layout:, punctuation:, ordinal:, start:, items:) -> {
+      renderer.ordered_list(
+        layout,
+        punctuation,
+        ordinal,
+        start,
+        list.map(
+          items,
+          list.map(_, render_block(
+            _,
+            references,
+            reference_attributes,
+            renderer,
+          )),
+        ),
+      )
+    }
     jot.BlockQuote(attributes:, items:) -> {
       renderer.blockquote(
         attributes,
@@ -323,9 +400,10 @@ fn render_block(
         )),
       )
     }
-    jot.Div(attributes:, items:) -> {
+    jot.Div(attributes:, class:, items:) -> {
       renderer.div(
         attributes,
+        class,
         list.map(items, render_block(
           _,
           references,
@@ -418,6 +496,38 @@ fn render_inline(
     jot.Span(attributes:, content:) -> {
       renderer.span(attributes, text_content(content))
     }
+    jot.Insert(content:) -> {
+      renderer.insert(text_content(content))
+    }
+    jot.Delete(content:) -> {
+      renderer.delete(text_content(content))
+    }
+    jot.Mark(content:) -> {
+      renderer.mark(text_content(content))
+    }
+    jot.Symbol(content:) -> {
+      renderer.symbol(content)
+    }
+    jot.Subscript(content:) -> {
+      renderer.subscript(
+        list.map(content, render_inline(
+          _,
+          references,
+          reference_attributes,
+          renderer,
+        )),
+      )
+    }
+    jot.Superscript(content:) -> {
+      renderer.subscript(
+        list.map(content, render_inline(
+          _,
+          references,
+          reference_attributes,
+          renderer,
+        )),
+      )
+    }
   }
 }
 
@@ -461,5 +571,11 @@ fn text_content(segments: List(jot.Inline)) -> String {
     jot.MathDisplay(_) -> text
     jot.MathInline(_) -> text
     jot.Span(attributes: _, content:) -> text <> text_content(content)
+    jot.Delete(content:) -> text <> text_content(content)
+    jot.Insert(content:) -> text <> text_content(content)
+    jot.Mark(content:) -> text <> text_content(content)
+    jot.Symbol(content:) -> text <> content
+    jot.Superscript(content:) -> text <> text_content(content)
+    jot.Subscript(content:) -> text <> text_content(content)
   }
 }
